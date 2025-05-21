@@ -9,7 +9,6 @@
 # it is necessary to develop distinct, dedicated test cases.
 
 import copy
-import inspect
 import unittest
 
 import numpy as np
@@ -22,13 +21,7 @@ from parameterized import parameterized
 import mindspore as ms
 
 from mindone.transformers import AlbertModel, AlbertForMaskedLM
-from tests.modeling_test_utils import (
-    MS_DTYPE_MAPPING,
-    PT_DTYPE_MAPPING,
-    compute_diffs,
-    generalized_parse_args,
-    get_modules,
-)
+from tests.modeling_test_utils import forward_compare
 from tests.transformers_tests.models.modeling_common import ids_numpy, random_attention_mask
 
 # CrossEntropyLoss not support bf16
@@ -141,7 +134,7 @@ class AlbertModelTest(unittest.TestCase):
     config_has_num_labels = copy.deepcopy(config)
     config_has_num_labels.num_labels = model_tester.num_labels
 
-    params_cases = [
+    ALBERT_CASES = [
         [
             "AlbertForMaskedLM",
             "transformers.AlbertForMaskedLM",
@@ -275,7 +268,7 @@ class AlbertModelTest(unittest.TestCase):
             + [
                 mode,
             ]
-            for case in params_cases
+            for case in ALBERT_CASES
             for dtype in DTYPE_AND_THRESHOLDS
             for mode in MODES
         ],
@@ -295,45 +288,14 @@ class AlbertModelTest(unittest.TestCase):
     ):
         ms.set_context(mode=mode)
 
-        (
-            pt_model,
-            ms_model,
-            pt_dtype,
-            ms_dtype,
-        ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
-        pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
-            pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+        diffs, pt_dtype, ms_dtype = forward_compare(
+            pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype
         )
-
-        # set `hidden_dtype` if requiring, for some modules always compute in float
-        # precision and require specific `hidden_dtype` to cast before return
-        if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
-            pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
-            ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
-
-        with torch.no_grad():
-            pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
-        ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
-        if outputs_map:
-            pt_outputs_n = []
-            ms_outputs_n = []
-            for pt_key, ms_idx in outputs_map.items():
-                pt_output = getattr(pt_outputs, pt_key)
-                ms_output = ms_outputs[ms_idx]
-                if isinstance(pt_output, (list, tuple)):
-                    pt_outputs_n += list(pt_output)
-                    ms_outputs_n += list(ms_output)
-                else:
-                    pt_outputs_n.append(pt_output)
-                    ms_outputs_n.append(ms_output)
-            diffs = compute_diffs(pt_outputs_n, ms_outputs_n)
-        else:
-            diffs = compute_diffs(pt_outputs, ms_outputs)
 
         THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
         self.assertTrue(
             (np.array(diffs) < THRESHOLD).all(),
-            f"ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
+            f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}")
 
 
@@ -344,7 +306,9 @@ class AlbertIntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode)
         input_ids = ms.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 1588, 2]], ms.int32)
         attention_mask = ms.tensor([[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], ms.int32)
-        model = AlbertModel.from_pretrained("albert/albert-base-v2")
+        # model_name = "albert/albert-base-v2"
+        model_name = "/home/slg/test_mindway/data/albert-base-v2"
+        model = AlbertModel.from_pretrained(model_name)
         model.set_train(False)
         output = model(input_ids, attention_mask=attention_mask)[0]
         expected_shape = (1, 11, 768)
@@ -356,9 +320,10 @@ class AlbertIntegrationTest(unittest.TestCase):
 
     @parameterized.expand(MODES)
     @slow
-    def test_model_albert_base_v2(self, mode):
+    def test_model_masked_lm(self, mode):
         ms.set_context(mode=mode)
-        model_name = "albert/albert-base-v2"
+        # model_name = "albert/albert-base-v2"
+        model_name = "/home/slg/test_mindway/data/albert-base-v2"
         attn_implementation = "eager"
         max_length = 64
         tokenizer = AutoTokenizer.from_pretrained(model_name)

@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import itertools
 import logging
 
@@ -286,3 +287,50 @@ def compute_diffs(pt_outputs: torch.Tensor, ms_outputs: ms.Tensor):
         diffs.append(d)
 
     return diffs
+
+def forward_compare(
+        pt_module,
+        ms_module,
+        init_args,
+        init_kwargs,
+        inputs_args,
+        inputs_kwargs,
+        outputs_map,
+        dtype
+):
+    (
+        pt_model,
+        ms_model,
+        pt_dtype,
+        ms_dtype,
+    ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
+    pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
+        pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+    )
+
+    # set `hidden_dtype` if requiring, for some modules always compute in float
+    # precision and require specific `hidden_dtype` to cast before return
+    if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
+        pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
+        ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
+
+    with torch.no_grad():
+        pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
+    ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
+    if outputs_map:
+        pt_outputs_n = []
+        ms_outputs_n = []
+        for pt_key, ms_idx in outputs_map.items():
+            pt_output = getattr(pt_outputs, pt_key)
+            ms_output = ms_outputs[ms_idx]
+            if isinstance(pt_output, (list, tuple)):
+                pt_outputs_n += list(pt_output)
+                ms_outputs_n += list(ms_output)
+            else:
+                pt_outputs_n.append(pt_output)
+                ms_outputs_n.append(ms_output)
+        diffs = compute_diffs(pt_outputs_n, ms_outputs_n)
+    else:
+        diffs = compute_diffs(pt_outputs, ms_outputs)
+
+    return diffs, pt_dtype, ms_dtype
