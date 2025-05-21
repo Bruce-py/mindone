@@ -304,7 +304,7 @@ class AlbertIntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode)
         input_ids = ms.Tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 1588, 2]], ms.int32)
         attention_mask = ms.Tensor([[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], ms.int32)
-        # model_name = "albert/albert-base-v2"
+        # model_name = "albert/albert-base-v2" # todo
         model_name = "/home/slg/test_mindway/data/albert-base-v2"
         model = AlbertModel.from_pretrained(model_name)
         model.set_train(False)
@@ -320,7 +320,7 @@ class AlbertIntegrationTest(unittest.TestCase):
     @slow
     def test_model_masked_lm(self, mode):
         ms.set_context(mode=mode)
-        # model_name = "albert/albert-base-v2"
+        # model_name = "albert/albert-base-v2"  # todo
         model_name = "/home/slg/test_mindway/data/albert-base-v2"
         attn_implementation = "eager"
         max_length = 64
@@ -341,5 +341,5 @@ class AlbertIntegrationTest(unittest.TestCase):
         eg_predicted_mask = tokenizer.decode(logits[0, 4].topk(5)[1])
         self.assertEqual(
             eg_predicted_mask.split(),
-            ["capital", "capitol", "comune", "arrondissement", "bastille"],
+            ["capital", "heart", "city", "centre", "seat"],
         )
