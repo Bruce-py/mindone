@@ -314,7 +314,7 @@ class AlbertIntegrationTest(unittest.TestCase):
         expected_shape = (1, 11, 768)
         self.assertEqual(output.shape, expected_shape)
         expected_slice = ms.tensor([[[-0.6512746, 1.5034751, -0.27662295], [-0.6515419, 1.5046045, -0.27801225],
-                                     [-0.65115345, 1.5049416, -0.2788323]]], ms.float32)
+                                     [-0.65115345, 1.5049416, -0.27838323]]], ms.float32)
 
         np.testing.assert_allclose(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
 
@@ -339,7 +339,7 @@ class AlbertIntegrationTest(unittest.TestCase):
         model.set_train(False)
         for key, value in inputs.items():
             inputs[key] = ms.Tensor(value)
-        logits = model(**inputs)
+        logits = model(**inputs)[0]
         eg_predicted_mask = tokenizer.decode(logits[0, 4].topk(5)[1])
         self.assertEqual(
             eg_predicted_mask.split(),
