@@ -13,12 +13,10 @@ import unittest
 
 import numpy as np
 import pytest
-import torch
+import mindspore as ms
 from transformers import AlbertConfig, AutoTokenizer
 from transformers.testing_utils import slow
 from parameterized import parameterized
-
-import mindspore as ms
 
 from mindone.transformers import AlbertModel, AlbertForMaskedLM
 from tests.modeling_test_utils import forward_compare
@@ -304,8 +302,8 @@ class AlbertIntegrationTest(unittest.TestCase):
     @slow
     def test_inference_no_head_absolute_embedding(self, mode):
         ms.set_context(mode=mode)
-        input_ids = ms.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 1588, 2]], ms.int32)
-        attention_mask = ms.tensor([[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], ms.int32)
+        input_ids = ms.Tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 1588, 2]], ms.int32)
+        attention_mask = ms.Tensor([[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], ms.int32)
         # model_name = "albert/albert-base-v2"
         model_name = "/home/slg/test_mindway/data/albert-base-v2"
         model = AlbertModel.from_pretrained(model_name)
@@ -313,7 +311,7 @@ class AlbertIntegrationTest(unittest.TestCase):
         output = model(input_ids, attention_mask=attention_mask)[0]
         expected_shape = (1, 11, 768)
         self.assertEqual(output.shape, expected_shape)
-        expected_slice = ms.tensor([[[-0.6512746, 1.5034751, -0.27662295], [-0.6515419, 1.5046045, -0.27801225],
+        expected_slice = ms.Tensor([[[-0.6512746, 1.5034751, -0.27662295], [-0.6515419, 1.5046045, -0.27801225],
                                      [-0.65115345, 1.5049416, -0.27838323]]], ms.float32)
 
         np.testing.assert_allclose(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
