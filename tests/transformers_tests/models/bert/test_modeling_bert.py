@@ -337,7 +337,7 @@ class BertIntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode)
         model_name = "google-bert/bert-base-uncased"
         attn_implementation = "eager"
-        max_length = 256  # todo 设置512 pad算子报错
+        max_length = 512
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         text = f"the man worked as a {tokenizer.mask_token}."
         inputs = tokenizer(
@@ -355,5 +355,5 @@ class BertIntegrationTest(unittest.TestCase):
         eg_predicted_mask = tokenizer.decode(logits[0, 6].topk(5)[1])
         self.assertEqual(
             eg_predicted_mask.split(),
-            ["carpenter", "waiter", "barber", "salesman", "bartener"],
+            ["carpenter", "waiter", "barber", "salesman", "bartender"],
         )
