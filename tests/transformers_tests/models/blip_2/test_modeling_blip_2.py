@@ -8,12 +8,10 @@
 # In cases where models have unique initialization procedures or require testing with specialized output formats,
 # it is necessary to develop distinct, dedicated test cases.
 
-import inspect
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
 from transformers import Blip2VisionConfig, Blip2Processor
 
@@ -127,7 +125,8 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         processor = Blip2Processor.from_pretrained(model_name)
         model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
 
-        image_url = "https://huggingface.co/hf-internal-testing/blip-test-image/resolve/main/demo.jpg"
+        # image_url = "https://huggingface.co/hf-internal-testing/blip-test-image/resolve/main/demo.jpg"
+        image_url = "/home/slg/test_mindway/data/images/demo.jpg"
         image = prepare_img(image_url)
         # case1 image
         inputs = ms.Tensor(processor(images=image, return_tensors="np")).to(ms.float16)

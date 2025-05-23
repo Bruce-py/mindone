@@ -8,14 +8,10 @@
 # In cases where models have unique initialization procedures or require testing with specialized output formats,
 # it is necessary to develop distinct, dedicated test cases.
 
-import inspect
-import logging
 import unittest
 
 import numpy as np
 import pytest
-import requests
-import torch
 from parameterized import parameterized
 from transformers import ChameleonConfig, ChameleonProcessor
 
@@ -192,7 +188,8 @@ class ChameleonModelIntegrationTest(unittest.TestCase):
         processor = ChameleonProcessor.from_pretrained(model_name)
         model = ChameleonForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
 
-        image_url = "https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg"
+        # image_url = "https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg"
+        image_url = "/home/slg/test_mindway/data/images/the-big-dipper-1.jpg"
         image = prepare_img(image_url)
         prompt = "<image>Describe what do you see here and tell me about the history behind it?"
 
@@ -200,7 +197,7 @@ class ChameleonModelIntegrationTest(unittest.TestCase):
 
         generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)
-        # greedy generation outputs
+        # check generation outputs
         EXPECTED_TEXT = [
             'Describe what do you see here and tell me about the history behind it?The image depicts a star map, with a bright blue dot in the center representing the star Alpha Centauri. The star map is a representation of the night sky, showing the positions of stars in']  # fmt: skip
 
