@@ -129,8 +129,8 @@ class Qwen3ModelTest(unittest.TestCase):
     )
     def test_model_generate(self, dtype, mode):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
-        self.pt_module = "transformers.Qwen3ForCausalLM"
-        self.ms_module = "mindone.transformers.Qwen3ForCausalLM"
+        pt_module = "transformers.Qwen3ForCausalLM"
+        ms_module = "mindone.transformers.Qwen3ForCausalLM"
         config, input_ids, _ = self.model_tester.prepare_config_and_inputs()
         init_args = (config,)
         init_kwargs = {}
@@ -142,7 +142,7 @@ class Qwen3ModelTest(unittest.TestCase):
             ms_model,
             pt_dtype,
             ms_dtype,
-        ) = get_modules(self.pt_module, self.ms_module, dtype, *init_args, **init_kwargs)
+        ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
 
         pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
             pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
