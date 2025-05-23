@@ -10,28 +10,24 @@
 
 import inspect
 import logging
+import unittest
 
 import numpy as np
 import pytest
+import requests
 import torch
-from transformers import ChameleonConfig
+from parameterized import parameterized
+from transformers import ChameleonConfig, ChameleonProcessor
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
-from tests.modeling_test_utils import (
-    MS_DTYPE_MAPPING,
-    PT_DTYPE_MAPPING,
-    compute_diffs,
-    generalized_parse_args,
-    get_modules,
-)
+from mindone.transformers import ChameleonForConditionalGeneration
+from tests.modeling_test_utils import forward_compare, prepare_img
 from tests.transformers_tests.models.modeling_common import ids_numpy
 
 DTYPE_AND_THRESHOLDS = {"fp32": 5e-4, "fp16": 5e-3, "bf16": 5e-2}
 MODES = [1]
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ChameleonModelTester:
@@ -157,102 +153,55 @@ class ChameleonModelTester:
         }
 
 
-model_tester = ChameleonModelTester()
-(
-    config,
-    input_ids,
-    input_mask,
-    sequence_labels,
-    token_labels,
-    choice_labels,
-) = model_tester.prepare_config_and_inputs()
+class ChameleonModelTest(unittest.TestCase):
+    def setUp(self):
+        self.model_tester = ChameleonModelTester()
 
-
-Chameleon_CASES = [
-    [
-        "ChameleonModel",
-        "transformers.ChameleonModel",
-        "mindone.transformers.ChameleonModel",
-        (config,),
-        {},
-        (input_ids,),
-        {
-            "attention_mask": input_mask,
-        },
-        {
-            "last_hidden_state": 0,
-        },
-    ],
-]
-
-
-@pytest.mark.parametrize(
-    "name,pt_module,ms_module,init_args,init_kwargs,inputs_args,inputs_kwargs,outputs_map,dtype,mode",
-    [
-        case
-        + [
-            dtype,
-        ]
-        + [
-            mode,
-        ]
-        for case in Chameleon_CASES
-        for dtype in DTYPE_AND_THRESHOLDS.keys()
-        for mode in MODES
-    ],
-)
-def test_named_modules(
-    name,
-    pt_module,
-    ms_module,
-    init_args,
-    init_kwargs,
-    inputs_args,
-    inputs_kwargs,
-    outputs_map,
-    dtype,
-    mode,
-):
-    ms.set_context(mode=mode)
-
-    (
-        pt_model,
-        ms_model,
-        pt_dtype,
-        ms_dtype,
-    ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
-    pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
-        pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+    @parameterized.expand(
+        [[dtype,] + [mode,] for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
     )
+    def test_model_forward(self, dtype, mode):
+        ms.set_context(mode=mode)
+        pt_module = "transformers.ChameleonModel"
+        ms_module = "mindone.transformers.ChameleonModel"
+        config, input_ids, input_mask, _, _, _ = self.model_tester.prepare_config_and_inputs()
+        init_args = (config,)
+        init_kwargs = {}
+        inputs_args = (input_ids,)
+        inputs_kwargs = {"attention_mask": input_mask}
+        outputs_map = {"last_hidden_state": 0}
 
-    # set `hidden_dtype` if requiring, for some modules always compute in float
-    # precision and require specific `hidden_dtype` to cast before return
-    if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
-        pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
-        ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
-    with torch.no_grad():
-        pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
-    ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
-    # logger.info(f"ms:{ms_outputs}")
-    # logger.info(f"pt:{pt_outputs}" )
-    if outputs_map:
-        pt_outputs_n = []
-        ms_outputs_n = []
-        for pt_key, ms_idx in outputs_map.items():
-            pt_output = getattr(pt_outputs, pt_key)
-            ms_output = ms_outputs[ms_idx]
-            if isinstance(pt_output, (list, tuple)):
-                pt_outputs_n += list(pt_output)
-                ms_outputs_n += list(ms_output)
-            else:
-                pt_outputs_n.append(pt_output)
-                ms_outputs_n.append(ms_output)
-        diffs = compute_diffs(pt_outputs_n, ms_outputs_n)
-    else:
-        diffs = compute_diffs(pt_outputs, ms_outputs)
-    logger.info(f"Differences: {diffs}")
-    THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
-    assert (np.array(diffs) < THRESHOLD).all(), (
-        f"ms_dtype: {ms_dtype}, pt_type: {pt_dtype}, "
-        f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
-    )
+        diffs, pt_dtype, ms_dtype = forward_compare(
+            pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype
+        )
+
+        THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
+        self.assertTrue(
+            (np.array(diffs) < THRESHOLD).all(),
+            f"For ChameleonModel forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
+        )
+
+
+class ChameleonModelIntegrationTest(unittest.TestCase):
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_7b_generate(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "facebook/chameleon-7b"
+        processor = ChameleonProcessor.from_pretrained(model_name)
+        model = ChameleonForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
+
+        image_url = "https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg"
+        image = prepare_img(image_url)
+        prompt = "<image>Describe what do you see here and tell me about the history behind it?"
+
+        inputs = ms.Tensor(processor(images=image, text=prompt, return_tensors="np")).to(ms.float16)
+
+        generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)
+        # greedy generation outputs
+        EXPECTED_TEXT = [
+            'Describe what do you see here and tell me about the history behind it?The image depicts a star map, with a bright blue dot in the center representing the star Alpha Centauri. The star map is a representation of the night sky, showing the positions of stars in']  # fmt: skip
+
+        self.assertEqual(EXPECTED_TEXT, generated_text)

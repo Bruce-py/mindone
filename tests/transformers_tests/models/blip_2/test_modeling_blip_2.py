@@ -15,11 +15,13 @@ import numpy as np
 import pytest
 import torch
 from parameterized import parameterized
-from transformers import Blip2VisionConfig
+from transformers import Blip2VisionConfig, Blip2Processor
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
-from tests.modeling_test_utils import forward_compare
+from mindone.transformers import Blip2ForConditionalGeneration
+from tests.modeling_test_utils import forward_compare, prepare_img
 from tests.transformers_tests.models.modeling_common import floats_numpy
 
 # fp16 got nan
@@ -27,7 +29,7 @@ DTYPE_AND_THRESHOLDS = {"fp32": 5e-4, "bf16": 5e-3}
 MODES = [0, 1]
 
 
-class Blip2VisionModelTester:
+class Blip2ModelTester:
     def __init__(
         self,
         batch_size=12,
@@ -86,9 +88,9 @@ class Blip2VisionModelTester:
         )
 
 
-class Blip2VisionModelTest(unittest.TestCase):
+class Blip2ModelTest(unittest.TestCase):
     def setUp(self):
-        self.model_tester = Blip2VisionModelTester()
+        self.model_tester = Blip2ModelTester()
 
     @parameterized.expand(
         [[dtype,] + [mode,] for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
@@ -114,3 +116,42 @@ class Blip2VisionModelTest(unittest.TestCase):
             f"For Blip2VisionModel forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
         )
+
+
+class Blip2ModelIntegrationTest(unittest.TestCase):
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_opt_2700m_generate(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "Salesforce/blip2-opt-2.7b"
+        processor = Blip2Processor.from_pretrained(model_name)
+        model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
+
+        image_url = "https://huggingface.co/hf-internal-testing/blip-test-image/resolve/main/demo.jpg"
+        image = prepare_img(image_url)
+        # case1 image
+        inputs = ms.Tensor(processor(images=image, return_tensors="np")).to(ms.float16)
+
+        generated_ids = model.generate(**inputs)
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+
+        expected_ids = [50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
+                        50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
+                        50265, 50265, 50265, 50265, 50265, 50265, 2, 102, 693, 2828, 15, 5, 4105, 19, 10, 2335,
+                        50118]  # fmt: skip
+        self.assertEqual(generated_ids[0].tolist(), expected_ids)
+        self.assertEqual("a woman sitting on the beach with a dog", generated_text)
+
+        # case2 image and context
+        prompt = "Question: which city is this? Answer:"
+        inputs = ms.Tensor(processor(images=image, text=prompt, return_tensors="np")).to(ms.float16)
+
+        generated_ids = model.generate(**inputs, max_new_tokens=11)
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+
+        expected_ids = [50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
+                        50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
+                        50265, 50265, 50265, 50265, 50265, 50265, 2, 45641, 35, 61, 343, 16, 42, 116, 31652, 35, 24, 18,
+                        45, 10, 343, 6, 24, 18, 10, 4105, 50118]  # fmt: skip
+        self.assertEqual(generated_ids[0].tolist(), expected_ids)
+        self.assertEqual(generated_text, "Question: which city is this? Answer: it's not a city, it's a beach")
