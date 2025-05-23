@@ -2,9 +2,11 @@ import importlib
 import inspect
 import itertools
 import logging
+import requests
 
 import numpy as np
 import torch
+from PIL import Image
 from diffusers.utils import BaseOutput
 from ml_dtypes import bfloat16
 
@@ -334,3 +336,8 @@ def forward_compare(
         diffs = compute_diffs(pt_outputs, ms_outputs)
 
     return diffs, pt_dtype, ms_dtype
+
+
+def prepare_img(url):
+    image = Image.open(requests.get(url, stream=True).raw)
+    return image
