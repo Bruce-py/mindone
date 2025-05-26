@@ -2,6 +2,8 @@ import importlib
 import inspect
 import itertools
 import logging
+from pathlib import Path
+
 import requests
 
 import numpy as np
@@ -322,9 +324,9 @@ def forward_compare(
     if outputs_map:
         pt_outputs_n = []
         ms_outputs_n = []
-        for pt_key, ms_idx in outputs_map.items():
+        for pt_key, ms_key in outputs_map.items():
             pt_output = getattr(pt_outputs, pt_key)
-            ms_output = ms_outputs[ms_idx]
+            ms_output = getattr(ms_outputs, ms_key) if isinstance(ms_key, str) else ms_outputs[ms_key]
             if isinstance(pt_output, (list, tuple)):
                 pt_outputs_n += list(pt_output)
                 ms_outputs_n += list(ms_output)
@@ -338,6 +340,12 @@ def forward_compare(
     return diffs, pt_dtype, ms_dtype
 
 
-def prepare_img(url):
-    image = Image.open(requests.get(url, stream=True).raw)
+def prepare_img(url_or_path):
+    path = Path(url_or_path)
+    if path.is_file():
+        image = Image.open(url_or_path)
+    elif url_or_path.startswith("http"):
+        image = Image.open(requests.get(url_or_path, stream=True).raw)
+    else:
+        raise FileNotFoundError(url_or_path)
     return image
