@@ -191,7 +191,7 @@ class Qwen3IntegrationTest(unittest.TestCase):
     @slow
     def test_model_600m_generate(self, mode):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
-        EXPECTED_TEXT_COMPLETION = """100% plain, unflavoured, and unadulterated. It is"""
+        EXPECTED_TEXT = "100% plain, unflavoured, and unadulterated. It is"
         prompt = "My favourite condiment is "
         model_name = "Qwen/Qwen3-0.6B-Base"
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
@@ -200,4 +200,4 @@ class Qwen3IntegrationTest(unittest.TestCase):
 
         generated_ids = model.generate(input_ids, max_new_tokens=20, temperature=0)
         text = tokenizer.decode(generated_ids[0][len(input_ids[0]):], skip_special_tokens=True)
-        self.assertEqual(EXPECTED_TEXT_COMPLETION, text)
+        self.assertEqual(EXPECTED_TEXT, text)

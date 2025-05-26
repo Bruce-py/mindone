@@ -9,20 +9,23 @@
 # it is necessary to develop distinct, dedicated test cases.
 
 import inspect
+import unittest
 
 import numpy as np
 import pytest
 import torch
-from transformers import MT5Config
+from parameterized import parameterized
+from transformers import MT5Config, AutoTokenizer
 
 import mindspore as ms
 
+from mindone.transformers import MT5ForConditionalGeneration
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
     compute_diffs,
     generalized_parse_args,
-    get_modules,
+    get_modules, forward_compare,
 )
 from tests.transformers_tests.models.modeling_common import ids_numpy
 
@@ -142,110 +145,109 @@ class MT5ModelTester:
         )
 
 
-model_tester = MT5ModelTester()
-config, input_ids, decoder_input_ids, attention_mask, _, _ = model_tester.prepare_config_and_inputs()
+class MT5ModelTest(unittest.TestCase):
+    # 初始化用例参数
+    model_tester = MT5ModelTester()
+    config, input_ids, decoder_input_ids, attention_mask = model_tester.prepare_config_and_inputs()[:4]
 
+    MT5_CASES = [
+        [
+            "MT5Model",
+            "transformers.MT5Model",
+            "mindone.transformers.MT5Model",
+            (config,),
+            {},
+            (),
+            {"input_ids": input_ids, "decoder_input_ids": decoder_input_ids},
+            {
+                "last_hidden_state": 0,
+            },
+        ],
+        [
+            "MT5EncoderModel",
+            "transformers.MT5EncoderModel",
+            "mindone.transformers.MT5EncoderModel",
+            (config,),
+            {},
+            (),
+            {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+            },
+            {
+                "last_hidden_state": 0,
+            },
+        ],
+    ]
 
-MT5_CASES = [
-    [
-        "MT5Model",
-        "transformers.MT5Model",
-        "mindone.transformers.MT5Model",
-        (config,),
-        {},
-        (),
-        {"input_ids": input_ids, "decoder_input_ids": decoder_input_ids},
-        {
-            "last_hidden_state": 0,
-        },
-    ],
-    [
-        "MT5EncoderModel",
-        "transformers.MT5EncoderModel",
-        "mindone.transformers.MT5EncoderModel",
-        (config,),
-        {},
-        (),
-        {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-        },
-        {
-            "last_hidden_state": 0,
-        },
-    ],
-]
-
-
-@pytest.mark.parametrize(
-    "name,pt_module,ms_module,init_args,init_kwargs,inputs_args,inputs_kwargs,outputs_map,dtype,mode",
-    [
-        case
-        + [
+    @parameterized.expand(
+        [
+            case
+            + [
+                dtype,
+            ]
+            + [
+                mode,
+            ]
+            for case in MT5_CASES
+            for dtype in DTYPE_AND_THRESHOLDS
+            for mode in MODES
+        ],
+    )
+    def test_model_forward(
+            self,
+            name,
+            pt_module,
+            ms_module,
+            init_args,
+            init_kwargs,
+            inputs_args,
+            inputs_kwargs,
+            outputs_map,
             dtype,
-        ]
-        + [
             mode,
-        ]
-        for case in MT5_CASES
-        for dtype in DTYPE_AND_THRESHOLDS.keys()
-        for mode in MODES
-    ],
-)
-def test_named_modules(
-    name,
-    pt_module,
-    ms_module,
-    init_args,
-    init_kwargs,
-    inputs_args,
-    inputs_kwargs,
-    outputs_map,
-    dtype,
-    mode,
-):
-    ms.set_context(mode=mode)
+    ):
+        ms.set_context(mode=mode)
 
-    (
-        pt_model,
-        ms_model,
-        pt_dtype,
-        ms_dtype,
-    ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
-    pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
-        pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
-    )
+        diffs, pt_dtype, ms_dtype = forward_compare(
+            pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype
+        )
 
-    # set `hidden_dtype` if requiring, for some modules always compute in float
-    # precision and require specific `hidden_dtype` to cast before return
-    if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
-        pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
-        ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
+        THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
+        self.assertTrue(
+            (np.array(diffs) < THRESHOLD).all(),
+            f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
+            f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}")
 
-    with torch.no_grad():
-        pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
-    ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
-    # print("ms:", ms_outputs)
-    # print("pt:", pt_outputs)
-    if outputs_map:
-        pt_outputs_n = []
-        ms_outputs_n = []
-        for pt_key, ms_idx in outputs_map.items():
-            # print("===map", pt_key, ms_idx)
-            pt_output = getattr(pt_outputs, pt_key)
-            ms_output = ms_outputs[ms_idx]
-            if isinstance(pt_output, (list, tuple)):
-                pt_outputs_n += list(pt_output)
-                ms_outputs_n += list(ms_output)
-            else:
-                pt_outputs_n.append(pt_output)
-                ms_outputs_n.append(ms_output)
-        diffs = compute_diffs(pt_outputs_n, ms_outputs_n)
-    else:
-        diffs = compute_diffs(pt_outputs, ms_outputs)
 
-    THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
-    assert (np.array(diffs) < THRESHOLD).all(), (
-        f"ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
-        f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
-    )
+class MT5IntegrationTest(unittest.TestCase):
+        def test_model_inference_logits(self):
+            model_name = "google-mt5/mt5-small"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+
+            input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
+            labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
+            output_logits = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))[1]
+
+            # check the logits todo
+            EXPECTED_SHAPE = ()
+            self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
+
+            EXPECTED_SLICE = ms.Tensor([], ms.float32)
+            np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+
+        def test_model_inference_generate(self):
+            model_name = "google/mt5-small"  # 支持多语言版本:ml-citation{ref="4" data="citationList"}
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+
+            input_text = "translate English to German: Hello, how are you?"
+            input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
+
+            generate_ids = model.generate(input_ids, max_length=50, do_sample=False, temperature=0)
+            output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
+
+            # check the text
+            EXPECTED_TEXT = ""
+            self.assertEqual(output_text, EXPECTED_TEXT)
