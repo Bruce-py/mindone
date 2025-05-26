@@ -1,9 +1,7 @@
-import logging
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
 from transformers import ImageGPTConfig
 
@@ -11,16 +9,12 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import ImageGPTForCausalImageModeling, ImageGPTImageProcessor
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
+from tests.modeling_test_utils import forward_compare, prepare_img
 
-# -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import ids_numpy, random_attention_mask
 
 DTYPE_AND_THRESHOLDS = {"fp32": 1e-3, "fp16": 1e-2, "bf16": 1e-2}
 MODES = [0, 1]
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ImageGPTModelTester:
@@ -239,14 +233,14 @@ class ImageGPTModelIntegrationTest(unittest.TestCase):
         inputs = image_processor(images=image, return_tensors="np")
         pixel_values = ms.Tensor(inputs.pixel_values)
 
-        outputs = model(pixel_values)
+        output_logits = model(pixel_values).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 1024, 512)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
         EXPECTED_SLICE = ms.Tensor([[2.3445, 2.6889, 2.7313],
                                     [1.0530, 1.2416, 0.5699],
                                     [0.2205, 0.7749, 0.3953]], ms.float32)
 
-        np.testing.assert_allclose(outputs[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(output_logits[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

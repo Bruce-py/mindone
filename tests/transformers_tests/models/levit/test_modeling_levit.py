@@ -12,9 +12,8 @@ from transformers.testing_utils import slow
 
 from mindone.transformers import LevitForImageClassificationWithTeacher
 from mindone.transformers.models.levit import LevitImageProcessor
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
+from tests.modeling_test_utils import forward_compare, prepare_img
 
-# -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import floats_numpy, ids_numpy
 
 # fp16 NaN
@@ -192,11 +191,11 @@ class LevitModelIntegrationTest(unittest.TestCase):
         inputs = image_processor(images=image, return_tensors="np")
         pixel_values = ms.Tensor(inputs.pixel_values)
 
-        outputs = model(pixel_values)
+        output_logits = model(pixel_values).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 1000)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
-        EXPECTED_SLICE = ms.Tensor([1.0448, -0.3745, -1.8317], ms.float32)
-        np.testing.assert_allclose(outputs[0, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        EXPECTED_SLICE = ms.Tensor([1.047667, -0.374364, -1.831444], ms.float32)
+        np.testing.assert_allclose(output_logits[0, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

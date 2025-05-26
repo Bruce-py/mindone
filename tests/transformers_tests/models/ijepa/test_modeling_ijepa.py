@@ -1,9 +1,7 @@
-import logging
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
 from transformers import IJepaConfig, ViTImageProcessor
 
@@ -12,16 +10,12 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import IJepaModel
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
+from tests.modeling_test_utils import forward_compare, prepare_img
 
-# -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import floats_numpy, ids_numpy
 
 DTYPE_AND_THRESHOLDS = {"fp32": 5e-4, "fp16": 5e-3, "bf16": 1e-2}
 MODES = [1]
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class IJepaModelTester:
@@ -194,14 +188,14 @@ class IjepaModelIntegrationTest(unittest.TestCase):
         inputs = image_processor(images=image, return_tensors="np")
         pixel_values = ms.Tensor(inputs.pixel_values)
 
-        outputs = model(pixel_values)
+        output_logits = model(pixel_values).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 256, 1280)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
         EXPECTED_SLICE = ms.Tensor([[-0.0621, -0.0054, -2.7513],
                                     [-0.1952, 0.0909, -3.9536],
                                     [0.0942, -0.0331, -1.2833]], ms.float32)
 
-        np.testing.assert_allclose(outputs[0, :3:, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(output_logits[0, :3:, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

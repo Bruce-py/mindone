@@ -339,5 +339,4 @@ class CLIPModelIntegrationTest(unittest.TestCase):
         )
 
         EXPECTED_LOGITS = ms.Tensor([[24.5701, 19.3049]])
-
         np.testing.assert_allclose(outputs[0], EXPECTED_LOGITS, rtol=1e-3, atol=1e-3)

@@ -141,7 +141,7 @@ class DPTModelIntegrationTest(unittest.TestCase):
     def test_model_inference_depth_estimation(self, mode):
         ms.set_context(mode=mode)
         model_name = "Intel/dpt-large"
-        image_processor = DPTImageProcessor.from_pretrained()
+        image_processor = DPTImageProcessor.from_pretrained(model_name)
         model = DPTForDepthEstimation.from_pretrained(model_name)
 
         image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"

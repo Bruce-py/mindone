@@ -1,9 +1,7 @@
-import logging
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
 from transformers import HieraConfig
 
@@ -11,16 +9,12 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import HieraForImageClassification, AutoImageProcessor, HieraModel
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
+from tests.modeling_test_utils import forward_compare, prepare_img
 
-# -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import floats_numpy, ids_numpy
 
 DTYPE_AND_THRESHOLDS = {"fp32": 5e-4}
 MODES = [1]
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class HieraModelTester:
@@ -192,15 +186,14 @@ class HieraModelIntegrationTest(unittest.TestCase):
         inputs = image_processor(images=image, return_tensors="np")
         pixel_values = ms.Tensor(inputs.pixel_values)
 
-        outputs = model(pixel_values)
+        output_logits = model(pixel_values).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 1000)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
         EXPECTED_SLICE = ms.Tensor([[0.8028, 0.2409, -0.2254, -0.3712, -0.2848]], ms.float32)
-
-        np.testing.assert_allclose(outputs[0, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(output_logits[0, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
     @slow
@@ -208,7 +201,6 @@ class HieraModelIntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode)
         model_name = "facebook/hiera-tiny-224-in1k-hf"
         model = HieraModel.from_pretrained(model_name)
-
         image_processor = AutoImageProcessor.from_pretrained(
             model_name, size={"shortest_edge": 448}, crop_size={"height": 448, "width": 448}
         )
@@ -218,13 +210,12 @@ class HieraModelIntegrationTest(unittest.TestCase):
         inputs = image_processor(images=image, return_tensors="np")
         pixel_values = ms.Tensor(inputs.pixel_values)
 
-        outputs = model(pixel_values, interpolate_pos_encoding=True)
+        output_logits = model(pixel_values, interpolate_pos_encoding=True).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 196, 768)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
         EXPECTED_SLICE = ms.Tensor(
             [[1.7853, 0.0690, 0.3177], [2.6853, -0.2334, 0.0889], [1.5445, -0.1515, -0.0300]], ms.float32)
-
-        np.testing.assert_allclose(outputs[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(output_logits[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

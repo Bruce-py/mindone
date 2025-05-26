@@ -1,9 +1,7 @@
-import logging
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
 from transformers import GLPNConfig
 
@@ -11,16 +9,12 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import GLPNForDepthEstimation, GLPNImageProcessor, AutoImageProcessor
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
+from tests.modeling_test_utils import forward_compare, prepare_img
 
-# -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import floats_numpy, ids_numpy
 
 DTYPE_AND_THRESHOLDS = {"fp32": 5e-4}
 MODES = [1]
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class GLPNModelTester:
@@ -183,13 +177,13 @@ class GLPNModelIntegrationTest(unittest.TestCase):
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-
         pixel_values = ms.Tensor(inputs.pixel_values)
-        outputs = model(pixel_values=pixel_values)
+
+        output_logits = model(pixel_values=pixel_values).logits
 
         EXPECTED_SHAPE = (1, 480, 640)
-        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
         EXPECTED_SLICE = ms.Tensor(
             [[3.4291, 2.7865, 2.5151], [3.2841, 2.7021, 2.3502], [3.1147, 2.4625, 2.2481]]
         )
-        np.testing.assert_allclose(outputs[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(output_logits[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
