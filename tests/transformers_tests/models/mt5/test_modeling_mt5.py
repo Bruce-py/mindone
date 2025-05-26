@@ -25,7 +25,8 @@ from tests.modeling_test_utils import (
     PT_DTYPE_MAPPING,
     compute_diffs,
     generalized_parse_args,
-    get_modules, forward_compare,
+    get_modules,
+    forward_compare
 )
 from tests.transformers_tests.models.modeling_common import ids_numpy
 

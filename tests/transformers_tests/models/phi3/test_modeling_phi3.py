@@ -10,20 +10,24 @@
 
 import inspect
 import logging
+import unittest
 
 import numpy as np
 import pytest
 import torch
-from transformers import Phi3Config
+from parameterized import parameterized
+from transformers import Phi3Config, AutoTokenizer
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
+from mindone.transformers import Phi3ForCausalLM
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
     compute_diffs,
     generalized_parse_args,
-    get_modules,
+    get_modules, forward_compare,
 )
 from tests.transformers_tests.models.modeling_common import ids_numpy
 
@@ -127,104 +131,119 @@ class Phi3ModelTester:
         )
 
 
-model_tester = Phi3ModelTester()
-(
-    config,
-    input_ids,
-    token_type_ids,
-    input_mask,
-    sequence_labels,
-    token_labels,
-    choice_labels,
-) = model_tester.prepare_config_and_inputs()
+class Phi3ModelTest(unittest.TestCase):
+    def setUp(self):
+        self.model_tester = Phi3ModelTester()
 
-
-PHI3_CASES = [
-    [
-        "Phi3Model",
-        "transformers.Phi3Model",
-        "mindone.transformers.Phi3Model",
-        (config,),
-        {},
-        (input_ids,),
-        {
-            "attention_mask": input_mask,
-        },
-        {
-            "last_hidden_state": 0,
-        },
-    ],
-]
-
-
-# transformers need >= 4.41.2
-@pytest.mark.parametrize(
-    "name,pt_module,ms_module,init_args,init_kwargs,inputs_args,inputs_kwargs,outputs_map,dtype,mode",
-    [
-        case
-        + [
-            dtype,
-        ]
-        + [
-            mode,
-        ]
-        for case in PHI3_CASES
-        for dtype in DTYPE_AND_THRESHOLDS.keys()
-        for mode in MODES
-    ],
-)
-def test_named_modules(
-    name,
-    pt_module,
-    ms_module,
-    init_args,
-    init_kwargs,
-    inputs_args,
-    inputs_kwargs,
-    outputs_map,
-    dtype,
-    mode,
-):
-    ms.set_context(mode=mode)
-
-    (
-        pt_model,
-        ms_model,
-        pt_dtype,
-        ms_dtype,
-    ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
-    pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
-        pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+    @parameterized.expand(
+        [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
     )
+    def test_model_forward(self, dtype, mode):
+        ms.set_context(mode=mode)
+        pt_module = "transformers.Phi3Model"
+        ms_module = "mindone.transformers.Phi3Model"
+        config, input_ids, _, input_mask = self.model_tester.prepare_config_and_inputs()[:4]
+        init_args = (config,)
+        init_kwargs = {}
+        inputs_args = (input_ids,)
+        inputs_kwargs = {"attention_mask": input_mask}
+        outputs_map = {"last_hidden_state": 0}  # key: torch attribute, value: mindspore idx
 
-    # set `hidden_dtype` if requiring, for some modules always compute in float
-    # precision and require specific `hidden_dtype` to cast before return
-    if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
-        pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
-        ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
-    with torch.no_grad():
-        pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
-    ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
-    # logger.info(f"ms:{ms_outputs}")
-    # logger.info(f"pt:{pt_outputs}" )
-    if outputs_map:
-        pt_outputs_n = []
-        ms_outputs_n = []
-        for pt_key, ms_idx in outputs_map.items():
-            pt_output = getattr(pt_outputs, pt_key)
-            ms_output = ms_outputs[ms_idx]
-            if isinstance(pt_output, (list, tuple)):
-                pt_outputs_n += list(pt_output)
-                ms_outputs_n += list(ms_output)
-            else:
-                pt_outputs_n.append(pt_output)
-                ms_outputs_n.append(ms_output)
-        diffs = compute_diffs(pt_outputs_n, ms_outputs_n)
-    else:
-        diffs = compute_diffs(pt_outputs, ms_outputs)
-    logger.info(f"Differences: {diffs}")
-    THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
-    assert (np.array(diffs) < THRESHOLD).all(), (
-        f"ms_dtype: {ms_dtype}, pt_type: {pt_dtype}, "
-        f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
+        diffs, pt_dtype, ms_dtype = forward_compare(
+            pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype
+        )
+
+        THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
+        self.assertTrue(
+            (np.array(diffs) < THRESHOLD).all(),
+            f"For Phi3Model forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
+        )
+
+    @parameterized.expand(
+        [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
     )
+    def test_model_generate(self, dtype, mode):
+        ms.set_context(mode=mode)
+        pt_module = "transformers.Phi3ForCausalLM"
+        ms_module = "mindone.transformers.Phi3ForCausalLM"
+        config, input_ids = self.model_tester.prepare_config_and_inputs()[:2]
+        init_args = (config,)
+        init_kwargs = {}
+        inputs_args = (input_ids,)
+        inputs_kwargs = {"max_new_tokens": 10, "do_sample": False, "use_cache": False}
+
+        (
+            pt_model,
+            ms_model,
+            pt_dtype,
+            ms_dtype,
+        ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
+
+        pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
+            pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+        )
+
+        if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
+            pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
+            ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
+
+        with torch.no_grad():
+            pt_outputs = pt_model.generate(*pt_inputs_args, **pt_inputs_kwargs)
+        ms_outputs = ms_model.generate(*ms_inputs_args, **ms_inputs_kwargs)
+        pt_outputs_np, ms_outputs_np = pt_outputs.numpy(), ms_outputs.asnumpy()
+
+        self.assertTrue(
+            ms_outputs_np.shape == pt_outputs_np.shape and (ms_outputs_np == pt_outputs_np).all(),
+            f"For Phi3ForCausalLM generate test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"ms_outputs_shape: {ms_outputs_np.shape}, pt_outputs_shape: {pt_outputs_np.shape},"
+            f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
+        )
+
+
+class Phi3IntegrationTest(unittest.TestCase):
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_mini_4k_instruct_logits(self, mode):
+        ms.set_context(mode=mode)
+        input_ids = {
+            "input_ids": ms.Tensor([[1212, 318, 281, 1672, 2643, 290, 428, 318, 257, 1332]], ms.int32)
+        }
+        model = Phi3ForCausalLM.from_pretrained("microsoft/phi-3-mini-4k-instruct")
+
+        output_logits = model(**input_ids)
+
+        EXPECTED_LOGITS = ms.Tensor([[ 0.9979, -1.9449, -2.5613, -2.2110, -0.9323, -2.2726, -3.2468, -2.0122,-1.0021,
+                                       -1.2764, -1.0876, -1.2358,  3.9385,  6.2152, -0.3695, -2.3285,-1.2907, -1.8238,
+                                       -1.9941, -2.2098, -0.6923, -1.6793, -1.1660, -2.0469,-0.7369, -1.4101, -1.4091,
+                                       -3.1694, -1.8383, -1.1952],
+                                     [ 3.0525,  1.9178,  3.7016,  0.9263,  0.3397,  1.9584,  2.1347,  0.3482, 1.3773,
+                                       0.2153,  0.2798,  0.8360,  9.0936, 11.4944, -0.3575, -0.9442,-0.1246,  1.3869,
+                                       0.9846,  1.7243,  0.9150,  1.0823,  0.4313,  1.5742, 0.2566, -0.1401, -1.3019,
+                                       0.4967,  0.6941,  0.7214]])
+        np.testing.assert_allclose(EXPECTED_LOGITS, output_logits[0, :2, :30], rtol=1e-4, atol=1e-4)
+
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_mini_4k_instruct_generate(self, mode):
+        ms.set_context(mode=mode)
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful digital assistant. Please provide safe, ethical and accurate information to the user.",
+            },
+            {"role": "user", "content": "Can you provide ways to eat combinations of bananas and dragonfruits?"},
+        ]
+        model_name = "microsoft/phi-3-mini-4k-instruct"
+        model = Phi3ForCausalLM.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="ms")
+
+        outputs = model.generate(inputs, max_new_tokens=32)
+        output_text = tokenizer.batch_decode(outputs)
+
+        EXPECTED_OUTPUT = [
+            "<|system|> You are a helpful digital assistant. Please provide safe, ethical and accurate information to the user.<|end|><|user|> Can you provide ways to eat combinations of bananas and dragonfruits?<|end|><|assistant|> Certainly! Bananas and dragonfruits can be combined in various delicious ways. Here are some ideas for incorporating these fruits into your"
+        ]
+        self.assertListEqual(output_text, EXPECTED_OUTPUT)
