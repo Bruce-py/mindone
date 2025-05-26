@@ -10,7 +10,7 @@ from transformers import GLPNConfig
 import mindspore as ms
 from transformers.testing_utils import slow
 
-from mindone.transformers import GLPNForDepthEstimation, GLPNImageProcessor
+from mindone.transformers import GLPNForDepthEstimation, GLPNImageProcessor, AutoImageProcessor
 from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
 
 # -------------------------------------------------------------
@@ -176,15 +176,16 @@ class GLPNModelIntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode)
         model_name = "vinvino02/glpn-kitti"
         model = GLPNForDepthEstimation.from_pretrained(model_name)
-        processor = GLPNImageProcessor.from_pretrained(model_name)
+        # processor = GLPNImageProcessor.from_pretrained(model_name)
+        image_processor = AutoImageProcessor.from_pretrained(model_name)
 
         # image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
-        inputs = processor(images=image, return_tensors="np")
+        inputs = image_processor(images=image, return_tensors="np")
 
         pixel_values = ms.Tensor(inputs.pixel_values)
-        outputs = model(pixel_values=pixel_values)[0]
+        outputs = model(pixel_values=pixel_values)
 
         EXPECTED_SHAPE = (1, 480, 640)
         self.assertEqual(outputs.shape, EXPECTED_SHAPE)

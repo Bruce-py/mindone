@@ -1,13 +1,18 @@
 import logging
+import unittest
 
 import numpy as np
 import pytest
 import torch
-from transformers import IJepaConfig
+from parameterized import parameterized
+from transformers import IJepaConfig, ViTImageProcessor
 
 import mindspore as ms
 
-from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules
+from transformers.testing_utils import slow
+
+from mindone.transformers import IJepaModel
+from tests.modeling_test_utils import compute_diffs, generalized_parse_args, get_modules, forward_compare, prepare_img
 
 # -------------------------------------------------------------
 from tests.transformers_tests.models.modeling_common import floats_numpy, ids_numpy
@@ -101,112 +106,102 @@ class IJepaModelTester:
         )
 
 
-model_tester = IJepaModelTester()
-config, pixel_values, labels = model_tester.prepare_config_and_inputs()
+class IjepaModelTest(unittest.TestCase):
+    # 初始化用例参数
+    model_tester = IJepaModelTester()
+    config, pixel_values, labels = model_tester.prepare_config_and_inputs()
 
-IJEPA_CASES = [
-    [
-        "IJepaModel",
-        "transformers.IJepaModel",
-        "mindone.transformers.IJepaModel",
-        (config,),
-        {},
-        (pixel_values,),
-        {},
-        {
-            "last_hidden_state": "last_hidden_state",
-        },
-    ],
-    [
-        "IJepaForImageClassification",
-        "transformers.IJepaForImageClassification",
-        "mindone.transformers.IJepaForImageClassification",
-        (config,),
-        {},
-        (pixel_values,),
-        {},
-        {
-            "logits": "logits",
-        },
-    ],
-]
+    IJEPA_CASES = [
+        [
+            "IJepaModel",
+            "transformers.IJepaModel",
+            "mindone.transformers.IJepaModel",
+            (config,),
+            {},
+            (pixel_values,),
+            {},
+            {
+                "last_hidden_state": "last_hidden_state",
+            },
+        ],
+        [
+            "IJepaForImageClassification",
+            "transformers.IJepaForImageClassification",
+            "mindone.transformers.IJepaForImageClassification",
+            (config,),
+            {},
+            (pixel_values,),
+            {},
+            {
+                "logits": "logits",
+            },
+        ],
+    ]
 
-
-@pytest.mark.parametrize(
-    "name,pt_module,ms_module,init_args,init_kwargs,inputs_args,inputs_kwargs,outputs_map,dtype,mode",
-    [
-        case
-        + [
+    @parameterized.expand(
+        [
+            case
+            + [
+                dtype,
+            ]
+            + [
+                mode,
+            ]
+            for case in IJEPA_CASES
+            for dtype in DTYPE_AND_THRESHOLDS
+            for mode in MODES
+        ],
+    )
+    def test_model_forward(
+            self,
+            name,
+            pt_module,
+            ms_module,
+            init_args,
+            init_kwargs,
+            inputs_args,
+            inputs_kwargs,
+            outputs_map,
             dtype,
-        ]
-        + [
             mode,
-        ]
-        for case in IJEPA_CASES
-        for dtype in DTYPE_AND_THRESHOLDS.keys()
-        for mode in MODES
-    ],
-)
-def test_ijepa_modules_comparison(
-    name,
-    pt_module,
-    ms_module,
-    init_args,
-    init_kwargs,
-    inputs_args,
-    inputs_kwargs,
-    outputs_map,
-    dtype,
-    mode,
-):
-    """
-    Compares the forward pass outputs of PyTorch and MindSpore Levit models.
-    """
-    ms.set_context(mode=mode)
-    threshold = DTYPE_AND_THRESHOLDS[dtype]
+    ):
+        ms.set_context(mode=mode)
 
-    (
-        pt_model,
-        ms_model,
-        pt_dtype,
-        ms_dtype,
-    ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
-    pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
-        pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
-    )
+        diffs, pt_dtype, ms_dtype = forward_compare(
+            pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype
+        )
 
-    pt_model.eval()
-    with torch.no_grad():
-        pt_outputs = pt_model(*pt_inputs_args, **pt_inputs_kwargs)
+        THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
+        self.assertTrue(
+            (np.array(diffs) < THRESHOLD).all(),
+            f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
+            f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}")
 
-    # MindSpore
-    ms_model.set_train(False)
-    ms_outputs = ms_model(*ms_inputs_args, **ms_inputs_kwargs)
 
-    pt_outputs_to_compare = []
-    ms_outputs_to_compare = []
+class IjepaModelIntegrationTest(unittest.TestCase):
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_inference_no_head_logits(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "facebook/ijepa_vith14_1k"
+        model = IJepaModel.from_pretrained(model_name)
+        # image_processor = AutoImageProcessor.from_pretrained(model_name)
+        image_processor = ViTImageProcessor.from_pretrained(model_name)
 
-    for pt_key, ms_key in outputs_map.items():
-        if pt_key not in pt_outputs.__dict__:
-            raise AttributeError(f"Output key '{pt_key}' not in PyTorch output object {type(pt_outputs)}.")
-        if ms_key not in ms_outputs.__dict__:
-            raise IndexError(f"Output index {ms_key} not in MindSpore output object {type(ms_outputs)}.")
+        # image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+        image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
+        image = prepare_img(image_url)
+        inputs = image_processor(images=image, return_tensors="np")
+        pixel_values = ms.Tensor(inputs.pixel_values)
 
-        pt_output = getattr(pt_outputs, pt_key)
-        ms_output = getattr(ms_outputs, ms_key)
+        outputs = model(pixel_values)
 
-        pt_outputs_to_compare.append(pt_output)
-        ms_outputs_to_compare.append(ms_output)
+        # check the logits
+        EXPECTED_SHAPE = (1, 256, 1280)
+        self.assertEqual(outputs.shape, EXPECTED_SHAPE)
 
-    # Compute differences between the aligned lists
-    diffs = compute_diffs(pt_outputs_to_compare, ms_outputs_to_compare)
+        EXPECTED_SLICE = ms.Tensor([[-0.0621, -0.0054, -2.7513],
+                                    [-0.1952, 0.0909, -3.9536],
+                                    [0.0942, -0.0331, -1.2833]], ms.float32)
 
-    logger.info(f"Computed Differences: {diffs}")
-
-    # --- Assertion ---
-    assert (np.array(diffs) < threshold).all(), (
-        f"Test Failed for {name} (Mode: {mode}, DType: {dtype})\n"
-        f"MindSpore dtype: {ms_dtype}, PyTorch dtype: {pt_dtype}\n"
-        f"Outputs differences {np.array(diffs).tolist()} exceeded threshold {threshold}"
-    )
-    logger.info(f"--- Test Passed: {name} | Mode: {mode} | DType: {dtype} ---")
+        np.testing.assert_allclose(outputs[0, :3:, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
