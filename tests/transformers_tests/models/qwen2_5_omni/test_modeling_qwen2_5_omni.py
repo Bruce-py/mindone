@@ -14,7 +14,10 @@
 
 import inspect
 import unittest
+from io import BytesIO
+from urllib.request import urlopen
 
+import librosa
 import numpy as np
 import pytest
 import torch
@@ -29,13 +32,17 @@ from transformers.models.qwen2_5_omni.configuration_qwen2_5_omni import (  # Qwe
 )
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
+from mindone.transformers import Qwen2_5OmniForConditionalGeneration
+from mindone.transformers.models.qwen2_5_omni import Qwen2_5OmniProcessor
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
-    compute_diffs,
     generalized_parse_args,
-    get_modules, forward_compare,
+    get_modules,
+    forward_compare,
+    prepare_img,
 )
 from tests.transformers_tests.models.modeling_common import ids_numpy
 
@@ -309,3 +316,47 @@ class Qwen2_5_OmniModelTest(unittest.TestCase):
             f"ms_outputs_shape: {ms_outputs_np.shape}, pt_outputs_shape: {pt_outputs_np.shape},"
             f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
         )
+
+
+class Qwen2_5OmniModelIntegrationTest(unittest.TestCase):
+    def setUp(self):
+        self.processor = Qwen2_5OmniProcessor.from_pretrained("Qwen/Qwen2.5-Omni-7B")
+        self.audio_url = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3"
+        self.audio_url_additional = (
+            "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/f2641_0_throatclearing.wav"
+        )
+        self.image_url = "https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2-VL/demo_small.jpg"
+        self.messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "audio", "audio_url": self.audio_url},
+                    {"type": "image", "image_url": self.image_url},
+                    {"type": "text", "text": "What's that sound and what kind of dog is this?"},
+                ],
+            }
+        ]
+
+        self.raw_audio, _ = librosa.load(
+            BytesIO(urlopen(self.audio_url).read()), sr=self.processor.feature_extractor.sampling_rate
+        )
+        self.raw_audio_additional, _ = librosa.load(
+            BytesIO(urlopen(self.audio_url_additional).read()), sr=self.processor.feature_extractor.sampling_rate
+        )
+        self.raw_image = prepare_img(self.image_url)
+
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_7b_generate(self):
+        model = Qwen2_5OmniForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-Omni-7B")
+
+        text = self.processor.apply_chat_template(self.messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.processor(
+            text=[text], audio=[self.raw_audio], images=[self.raw_image], return_tensors="np", padding=True
+        )
+
+        generate_ids = model.generate(ms.Tensor(inputs.input_ids), thinker_temperature=0, thinker_do_sample=False, return_audio=False)
+        output_text = self.processor.decode(generate_ids, skip_special_tokens=True)
+
+        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat's that sound and what kind of dog is this?\nassistant\nThe sound is glass shattering, and the dog appears to be a Labrador Retriever."
+        self.assertEqual(output_text, EXPECTED_TEXT)
