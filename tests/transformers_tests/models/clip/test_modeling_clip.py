@@ -293,10 +293,6 @@ class CLIPModelTest(unittest.TestCase):
             mode,
     ):
         ms.set_context(mode=mode)
-        # set seed
-        ms.set_seed(42)
-        np.random.seed(42)
-        torch.manual_seed(42)
 
         diffs, pt_dtype, ms_dtype = forward_compare(
             pt_module, ms_module, init_args, init_kwargs, inputs_args, inputs_kwargs, outputs_map, dtype

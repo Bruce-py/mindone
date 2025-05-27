@@ -222,33 +222,33 @@ class MT5ModelTest(unittest.TestCase):
 
 
 class MT5IntegrationTest(unittest.TestCase):
-        def test_model_inference_logits(self):
-            model_name = "google-mt5/mt5-small"
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+    def test_model_inference_logits(self):
+        model_name = "google-mt5/mt5-small"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
-            input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
-            labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
-            output_logits = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))[1]
+        input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
+        labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
+        output_logits = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))[1]
 
-            # check the logits todo
-            EXPECTED_SHAPE = ()
-            self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
+        # check the logits todo
+        EXPECTED_SHAPE = ()
+        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
-            EXPECTED_SLICE = ms.Tensor([], ms.float32)
-            np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        EXPECTED_SLICE = ms.Tensor([], ms.float32)
+        np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
-        def test_model_inference_generate(self):
-            model_name = "google/mt5-small"  # 支持多语言版本:ml-citation{ref="4" data="citationList"}
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+    def test_model_inference_generate(self):
+        model_name = "google/mt5-small"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
-            input_text = "translate English to German: Hello, how are you?"
-            input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
+        input_text = "translate English to German: Hello, how are you?"
+        input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
 
-            generate_ids = model.generate(input_ids, max_length=50, do_sample=False, temperature=0)
-            output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
+        generate_ids = model.generate(input_ids, max_length=50, do_sample=False, temperature=0)
+        output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
 
-            # check the text
-            EXPECTED_TEXT = ""
-            self.assertEqual(output_text, EXPECTED_TEXT)
+        # check the text
+        EXPECTED_TEXT = ""
+        self.assertEqual(output_text, EXPECTED_TEXT)
