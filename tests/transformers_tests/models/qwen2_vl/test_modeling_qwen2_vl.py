@@ -15,16 +15,19 @@ import numpy as np
 import pytest
 import torch
 from parameterized import parameterized
-from transformers import Qwen2VLConfig
+from transformers import Qwen2VLConfig, AutoProcessor
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
+from mindone.transformers import Qwen2VLForConditionalGeneration
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
     generalized_parse_args,
     get_modules,
     forward_compare,
+    prepare_img,
 )
 from tests.transformers_tests.models.modeling_common import ids_numpy
 
@@ -142,7 +145,7 @@ class Qwen2VLModelTest(unittest.TestCase):
     @parameterized.expand(
         [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
     )
-    def test_model_generate(self, dtype, mode):
+    def test_model_generate(self, dtype, mode):  # todo ms待跑通
         ms.set_context(mode=mode)
         pt_module = "transformers.Qwen2VLForConditionalGeneration"
         ms_module = "mindone.transformers.Qwen2VLForConditionalGeneration"
@@ -179,3 +182,32 @@ class Qwen2VLModelTest(unittest.TestCase):
             f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
         )
 
+
+class Qwen2VLIntegrationTest(unittest.TestCase):
+    def setUp(self):
+        self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        self.messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": "What kind of dog is this?"},
+                ],
+            }
+        ]
+        image_url = "https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2-VL/demo_small.jpg"
+        self.image = prepare_img(image_url)
+
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_7b_generate(self):
+        model = Qwen2VLForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+
+        text = self.processor.apply_chat_template(self.messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.processor(text=[text], images=[self.image], return_tensors="np")
+
+        generate_ids = model.generate(ms.Tensor(inputs.input_ids), max_new_tokens=30)
+        output_text = self.processor.decode(generate_ids, skip_special_tokens=True)
+        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat kind of dog is this?\nassistant\nThe dog in the picture appears to be a Labrador Retriever. Labradors are known for their friendly and intelligent nature, making them popular choices"
+
+        self.assertEqual(output_text, EXPECTED_TEXT)
