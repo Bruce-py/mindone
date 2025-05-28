@@ -115,7 +115,7 @@ class Blip2ModelTest(unittest.TestCase):
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
         )
 
-
+# TODO Blip2ForConditionalGeneration 跑不通
 class Blip2ModelIntegrationTest(unittest.TestCase):
     @parameterized.expand(MODES)
     @slow
@@ -152,6 +152,6 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         expected_ids = [50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
                         50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265, 50265,
                         50265, 50265, 50265, 50265, 50265, 50265, 2, 45641, 35, 61, 343, 16, 42, 116, 31652, 35, 24, 18,
-                        45, 10, 343, 6, 24, 18, 10, 4105, 50118]  # fmt: skip
+                        45, 10, 343, 6, 24, 18, 10, 4105, 50118]
         self.assertEqual(generated_ids[0].tolist(), expected_ids)
         self.assertEqual(generated_text, "Question: which city is this? Answer: it's not a city, it's a beach")

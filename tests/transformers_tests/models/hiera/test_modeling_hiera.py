@@ -185,15 +185,16 @@ class HieraModelIntegrationTest(unittest.TestCase):
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-        pixel_values = ms.Tensor(inputs.pixel_values)
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
 
-        output_logits = model(pixel_values).logits
+        output_logits = model(**inputs).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 1000)
         self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
 
-        EXPECTED_SLICE = ms.Tensor([[0.8028, 0.2409, -0.2254, -0.3712, -0.2848]], ms.float32)
+        EXPECTED_SLICE = ms.Tensor([0.8028, 0.2409, -0.2254, -0.3712, -0.2848], ms.float32)
         np.testing.assert_allclose(output_logits[0, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
@@ -209,9 +210,10 @@ class HieraModelIntegrationTest(unittest.TestCase):
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-        pixel_values = ms.Tensor(inputs.pixel_values)
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
 
-        output_logits = model(pixel_values, interpolate_pos_encoding=True).logits
+        output_logits = model(**inputs, interpolate_pos_encoding=True).last_hidden_state
 
         # check the logits
         EXPECTED_SHAPE = (1, 196, 768)

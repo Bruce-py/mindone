@@ -171,20 +171,20 @@ class GLPNModelIntegrationTest(unittest.TestCase):
         model_name = "/home/slg/test_mindway/data/glpn-kitti"
         # model_name = "vinvino02/glpn-kitti"
         model = GLPNForDepthEstimation.from_pretrained(model_name)
-        # processor = GLPNImageProcessor.from_pretrained(model_name)
-        image_processor = AutoImageProcessor.from_pretrained(model_name)
+        image_processor = GLPNImageProcessor.from_pretrained(model_name)
 
         # image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-        pixel_values = ms.Tensor(inputs.pixel_values)
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
 
-        output_logits = model(pixel_values=pixel_values).logits
+        predicted_depth = model(**inputs).predicted_depth
 
         EXPECTED_SHAPE = (1, 480, 640)
-        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
+        self.assertEqual(predicted_depth.shape, EXPECTED_SHAPE)
         EXPECTED_SLICE = ms.Tensor(
             [[3.4291, 2.7865, 2.5151], [3.2841, 2.7021, 2.3502], [3.1147, 2.4625, 2.2481]]
         )
-        np.testing.assert_allclose(output_logits[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(predicted_depth[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

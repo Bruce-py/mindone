@@ -187,15 +187,18 @@ class ChameleonModelIntegrationTest(unittest.TestCase):
         model_name = "/home/slg/test_mindway/data/chameleon-7b"
         # model_name = "facebook/chameleon-7b"
         processor = ChameleonProcessor.from_pretrained(model_name)
-        model = ChameleonForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
+        model = ChameleonForConditionalGeneration.from_pretrained(
+            model_name, mindspore_dtype=ms.float32, attn_implementation="flash_attention_2"
+        )
 
         # image_url = "https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg"
         image_url = "/home/slg/test_mindway/data/images/the-big-dipper-1.jpg"
         image = prepare_img(image_url)
         prompt = "<image>Describe what do you see here and tell me about the history behind it?"
 
-        inputs = ms.Tensor(processor(images=image, text=prompt, return_tensors="np")).to(ms.float16)
-
+        inputs = processor(images=image, text=prompt, return_tensors="np")
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
         generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)
         # check generation outputs

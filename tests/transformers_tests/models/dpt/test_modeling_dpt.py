@@ -148,7 +148,8 @@ class DPTModelIntegrationTest(unittest.TestCase):
         image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-        inputs["pixel_values"] = ms.Tensor(inputs["pixel_values"])
+        for k, v in inputs.items():
+            inputs[k] = ms.tensor(v)
 
         outputs = model(**inputs)
         predicted_depth = outputs[0]
