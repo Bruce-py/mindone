@@ -21,6 +21,7 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import Qwen2VLForConditionalGeneration
+from scripts.eval_videos_metrics import model
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
@@ -200,8 +201,11 @@ class Qwen2VLIntegrationTest(unittest.TestCase):
 
     @parameterized.expand(MODES)
     @slow
-    def test_model_7b_generate(self):
-        model = Qwen2VLForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+    def test_model_7b_generate(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "/home/slg/test_mindway/data/Qwen2-VL-7B-Instruct"
+        # model_name = "Qwen/Qwen2-VL-7B-Instruct"
+        model = Qwen2VLForConditionalGeneration.from_pretrained(model_name)
 
         text = self.processor.apply_chat_template(self.messages, tokenize=False, add_generation_prompt=True)
         inputs = self.processor(text=[text], images=[self.image], return_tensors="np")

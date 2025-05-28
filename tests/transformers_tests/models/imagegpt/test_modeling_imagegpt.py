@@ -224,7 +224,8 @@ class ImageGPTModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_causal_lm_head_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "openai/imagegpt-small"
+        model_name = "/home/slg/test_mindway/data/imagegpt-small"
+        # model_name = "openai/imagegpt-small"
         model = ImageGPTForCausalImageModeling.from_pretrained(model_name)
         image_processor = ImageGPTImageProcessor.from_pretrained(model_name)
         # image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"

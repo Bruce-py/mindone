@@ -168,7 +168,8 @@ class GLPNModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "vinvino02/glpn-kitti"
+        model_name = "/home/slg/test_mindway/data/glpn-kitti"
+        # model_name = "vinvino02/glpn-kitti"
         model = GLPNForDepthEstimation.from_pretrained(model_name)
         # processor = GLPNImageProcessor.from_pretrained(model_name)
         image_processor = AutoImageProcessor.from_pretrained(model_name)

@@ -181,7 +181,8 @@ class LevitModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_image_classification_head_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "facebook/levit-128S"
+        model_name = "/home/slg/test_mindway/data/levit-128S"
+        # model_name = "facebook/levit-128S"
         model = LevitForImageClassificationWithTeacher.from_pretrained(model_name)
         image_processor = LevitImageProcessor.from_pretrained(model_name)
 

@@ -310,7 +310,8 @@ class CLIPModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "openai/clip-vit-base-patch32"
+        model_name = "/home/slg/test_mindway/data/clip-vit-base-patch32"
+        # model_name = "openai/clip-vit-base-patch32"
         model = CLIPModel.from_pretrained(model_name)
         processor = CLIPProcessor.from_pretrained(model_name)
 

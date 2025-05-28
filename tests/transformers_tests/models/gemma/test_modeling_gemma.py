@@ -208,7 +208,8 @@ class GemmaIntegrationTest(unittest.TestCase):
     def test_model_2b_logits(self, mode):
         ms.set_context(mode=mode)
         input_ids = [1, 306, 4658, 278, 6593, 310, 2834, 338]
-        model_name = "google/gemma-2b"
+        # model_name = "google/gemma-2b"
+        model_name = "hf-internal-testing/dummy-gemma"
         model = GemmaForCausalLM.from_pretrained(model_name)
         input_ids = ms.tensor([input_ids], ms.int32)
         model.set_train(False)
@@ -230,7 +231,8 @@ class GemmaIntegrationTest(unittest.TestCase):
         # todo EXPECTED
         EXPECTED_TEXT = """"""
         prompt = "What is your favorite condiment?"
-        model_name = "google/gemma-2b"
+        model_name = "hf-internal-testing/dummy-gemma"
+        # model_name = "google/gemma-2b"
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
         model = GemmaForCausalLM.from_pretrained(model_name)
         input_ids = ms.Tensor(tokenizer([prompt], return_tensors="np").input_ids, ms.int32)

@@ -121,7 +121,8 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_opt_2700m_generate(self, mode):
         ms.set_context(mode=mode)
-        model_name = "Salesforce/blip2-opt-2.7b"
+        model_name = "/home/slg/test_mindway/data/blip2-opt-2.7b"
+        # model_name = "Salesforce/blip2-opt-2.7b"
         processor = Blip2Processor.from_pretrained(model_name)
         model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
 

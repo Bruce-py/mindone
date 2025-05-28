@@ -176,7 +176,8 @@ class HieraModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_image_classification_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "facebook/hiera-tiny-224-in1k-hf"
+        model_name = "/home/slg/test_mindway/data/hiera-tiny-224-in1k-hf"
+        # model_name = "facebook/hiera-tiny-224-in1k-hf"
         model = HieraForImageClassification.from_pretrained(model_name)
         image_processor = AutoImageProcessor.from_pretrained(model_name)
 

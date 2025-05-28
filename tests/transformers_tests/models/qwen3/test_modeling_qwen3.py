@@ -171,7 +171,9 @@ class Qwen3IntegrationTest(unittest.TestCase):
     def test_model_600m_logits(self, mode):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
         input_ids = [1, 306, 4658, 278, 6593, 310, 2834, 338]
-        model = Qwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B-Base")
+        # model_name = "Qwen/Qwen3-0.6B-Base"
+        model_name = "/home/slg/test_mindway/data/Qwen3-0.6B-Base"
+        model = Qwen3ForCausalLM.from_pretrained(model_name)
         input_ids = ms.tensor([input_ids], ms.int32)
         model.set_train(False)
         out_logits = model(input_ids, use_cache=False)[0].asnumpy()
@@ -193,7 +195,8 @@ class Qwen3IntegrationTest(unittest.TestCase):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
         EXPECTED_TEXT = "100% plain, unflavoured, and unadulterated. It is"
         prompt = "My favourite condiment is "
-        model_name = "Qwen/Qwen3-0.6B-Base"
+        model_name = "/home/slg/test_mindway/data/Qwen3-0.6B-Base"
+        # model_name = "Qwen/Qwen3-0.6B-Base"
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
         model = Qwen3ForCausalLM.from_pretrained(model_name)
         input_ids = ms.Tensor(tokenizer([prompt], return_tensors="np").input_ids, ms.int32)

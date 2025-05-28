@@ -184,7 +184,8 @@ class ChameleonModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_7b_generate(self, mode):
         ms.set_context(mode=mode)
-        model_name = "facebook/chameleon-7b"
+        model_name = "/home/slg/test_mindway/data/chameleon-7b"
+        # model_name = "facebook/chameleon-7b"
         processor = ChameleonProcessor.from_pretrained(model_name)
         model = ChameleonForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
 

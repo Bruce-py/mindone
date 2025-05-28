@@ -177,7 +177,8 @@ class IjepaModelIntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_no_head_logits(self, mode):
         ms.set_context(mode=mode)
-        model_name = "facebook/ijepa_vith14_1k"
+        model_name = "/home/slg/test_mindway/data/ijepa_vith14_1k"
+        # model_name = "facebook/ijepa_vith14_1k"
         model = IJepaModel.from_pretrained(model_name)
         # image_processor = AutoImageProcessor.from_pretrained(model_name)
         image_processor = ViTImageProcessor.from_pretrained(model_name)

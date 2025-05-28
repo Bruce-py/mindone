@@ -347,8 +347,10 @@ class Qwen2_5OmniModelIntegrationTest(unittest.TestCase):
 
     @parameterized.expand(MODES)
     @slow
-    def test_model_7b_generate(self):
-        model = Qwen2_5OmniForConditionalGeneration.from_pretrained("Qwen/Qwen2.5-Omni-7B")
+    def test_model_7b_generate(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "Qwen/Qwen2.5-Omni-7B"
+        model = Qwen2_5OmniForConditionalGeneration.from_pretrained(model_name)
 
         text = self.processor.apply_chat_template(self.messages, tokenize=False, add_generation_prompt=True)
         inputs = self.processor(

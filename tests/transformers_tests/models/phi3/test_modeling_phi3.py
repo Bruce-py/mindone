@@ -209,7 +209,9 @@ class Phi3IntegrationTest(unittest.TestCase):
         input_ids = {
             "input_ids": ms.Tensor([[1212, 318, 281, 1672, 2643, 290, 428, 318, 257, 1332]], ms.int32)
         }
-        model = Phi3ForCausalLM.from_pretrained("microsoft/phi-3-mini-4k-instruct")
+        model_name = "/home/slg/test_mindway/phi-3-mini-4k-instruct"
+        # model_name = "microsoft/phi-3-mini-4k-instruct"
+        model = Phi3ForCausalLM.from_pretrained(model_name)
 
         output_logits = model(**input_ids)
 
@@ -234,7 +236,8 @@ class Phi3IntegrationTest(unittest.TestCase):
             },
             {"role": "user", "content": "Can you provide ways to eat combinations of bananas and dragonfruits?"},
         ]
-        model_name = "microsoft/phi-3-mini-4k-instruct"
+        model_name = "/home/slg/test_mindway/phi-3-mini-4k-instruct"
+        # model_name = "microsoft/phi-3-mini-4k-instruct"
         model = Phi3ForCausalLM.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 

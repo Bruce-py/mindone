@@ -18,6 +18,7 @@ from parameterized import parameterized
 from transformers import T5Config, AutoTokenizer
 
 import mindspore as ms
+from transformers.testing_utils import slow
 
 from mindone.transformers import MT5ForConditionalGeneration
 from tests.modeling_test_utils import (
@@ -268,8 +269,12 @@ class T5ModelTest(unittest.TestCase):
 
 
 class T5IntegrationTest(unittest.TestCase):
-    def test_model_inference_logits(self):
-        model_name = "google/flan-t5-small"
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_inference_logits(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "/home/slg/test_mindway/data/flan-t5-small"
+        # model_name = "google/flan-t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
@@ -284,7 +289,11 @@ class T5IntegrationTest(unittest.TestCase):
         EXPECTED_SLICE = ms.Tensor([], ms.float32)
         np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
-    def test_model_inference_generate(self):
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_inference_generate(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "/home/slg/test_mindway/data/flan-t5-small"
         model_name = "google/flan-t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
