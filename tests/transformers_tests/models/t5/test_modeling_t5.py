@@ -297,17 +297,35 @@ class T5IntegrationTest(unittest.TestCase):
 
     @parameterized.expand(MODES)
     @slow
-    def test_model_inference_generate(self, mode):
+    def test_small_generation(self, mode):
         ms.set_context(mode=mode)
-        model_name = "/home/slg/test_mindway/data/flan-t5-small"
-        # model_name = "google/flan-t5-small"
+        # model_name = "/home/slg/test_mindway/data/t5-base"
+        model_name = "google-t5/t5-base"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = MT5ForConditionalGeneration.from_pretrained(model_name)
+
+        input_text = "summarize: Hello there"
+        input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
+
+        generate_ids = model.generate(input_ids, max_length=8, num_beams=1, do_sample=False)
+
+        output_text = tokenizer.batch_decode(generate_ids, skip_special_tokens=True)[0]
+        self.assertTrue(output_text == "Hello there!")
+
+
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_inference_translate_en_to_de(self, mode):
+        ms.set_context(mode=mode)
+        model_name = "/home/slg/test_mindway/data/t5-base"
+        # model_name = "google-t5/t5-base"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
         input_text = "translate English to German: Hello, how are you?"
         input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
 
-        generate_ids = model.generate(input_ids, max_length=50, do_sample=False, temperature=0)
+        generate_ids = model.generate(input_ids)
         output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
 
         # check the text

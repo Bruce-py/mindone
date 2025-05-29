@@ -21,7 +21,6 @@ import mindspore as ms
 from transformers.testing_utils import slow
 
 from mindone.transformers import Qwen2VLForConditionalGeneration
-from scripts.eval_videos_metrics import model
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
