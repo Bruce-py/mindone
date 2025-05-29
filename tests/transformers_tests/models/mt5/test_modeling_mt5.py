@@ -234,20 +234,25 @@ class MT5IntegrationTest(unittest.TestCase):
 
         input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
         labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
-        output_logits = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))[1]
+        outputs = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))
+        loss, logits = outputs[:2]
+        # check the loss
+        EXPECTED_LOSS = ms.Tensor(12.6353, ms.float32)
+        np.testing.assert_allclose(loss, EXPECTED_LOSS, rtol=1e-4, atol=1e-4)
 
-        # check the logits todo
-        EXPECTED_SHAPE = ()
-        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
-
-        EXPECTED_SLICE = ms.Tensor([], ms.float32)
-        np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        # check the logits
+        EXPECTED_SHAPE = (1, 7, 250112)
+        self.assertEqual(logits.shape, EXPECTED_SHAPE)
+        EXPECTED_SLICE = ms.Tensor([[-0.9909031, -1.1692917, 0.52174586],
+                                    [-0.3868851, -1.0489788, 0.5628309],
+                                    [-0.435801, -0.78902274, 0.6744464]], ms.float32)
+        np.testing.assert_allclose(logits[0, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
     @slow
     def test_model_inference_generate(self, mode):
         ms.set_context(mode=mode)
-        model_name = "/home/slg/test_mindway/mt5-small"
+        model_name = "/home/slg/test_mindway/data/mt5-small"
         # model_name = "google/mt5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
@@ -255,9 +260,9 @@ class MT5IntegrationTest(unittest.TestCase):
         input_text = "translate English to German: Hello, how are you?"
         input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
 
-        generate_ids = model.generate(input_ids, max_length=50, do_sample=False, temperature=0)
+        generate_ids = model.generate(input_ids, max_length=50)
         output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
 
         # check the text
-        EXPECTED_TEXT = ""
+        EXPECTED_TEXT = "Hallo, wie geht es Ihnen?"
         self.assertEqual(output_text, EXPECTED_TEXT)

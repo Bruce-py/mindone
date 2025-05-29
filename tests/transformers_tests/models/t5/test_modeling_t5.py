@@ -232,10 +232,10 @@ class T5ModelTest(unittest.TestCase):
     )
     def test_model_generate(self, dtype, mode):
         ms.set_context(mode=mode)
-        model_name = "Qwen2_5OmniForConditionalGeneration"
+        model_name = "T5ForConditionalGeneration"
         pt_module = f"transformers.{model_name}"
         ms_module = f"mindone.transformers.{model_name}"
-        init_args = (self.thinker_config,)
+        init_args = (self.config,)
         init_kwargs = {}
         inputs_args = (self.input_ids,)
         inputs_kwargs = {"max_new_tokens": 15, "do_sample": False, "use_cache": False}
@@ -280,21 +280,27 @@ class T5IntegrationTest(unittest.TestCase):
 
         input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
         labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
-        output_logits = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))[1]
+        outputs = model(input_ids=ms.Tensor(input_ids), labels=ms.Tensor(labels, ms.int32))
+        loss, logits = outputs[:2]
 
-        # check the logits todo
-        EXPECTED_SHAPE = ()
-        self.assertEqual(output_logits.shape, EXPECTED_SHAPE)
+        # check the loss
+        EXPECTED_LOSS = ms.Tensor(16.6146, ms.float32)
+        np.testing.assert_allclose(loss, EXPECTED_LOSS, rtol=1e-4, atol=1e-4)
 
-        EXPECTED_SLICE = ms.Tensor([], ms.float32)
-        np.testing.assert_allclose(output_logits[0, :10], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        # check the logits
+        EXPECTED_SHAPE = (1, 9, 32128)
+        self.assertEqual(logits.shape, EXPECTED_SHAPE)
+
+        EXPECTED_SLICE = ms.Tensor([[-41.227314, -3.6791453, -8.1832485, 0.9304836, -12.596826],
+                                    [-34.545765, -3.5687943, -1.4550631, 4.510734, -4.293913]], ms.float32)
+        np.testing.assert_allclose(logits[0, :2, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
     @slow
     def test_model_inference_generate(self, mode):
         ms.set_context(mode=mode)
         model_name = "/home/slg/test_mindway/data/flan-t5-small"
-        model_name = "google/flan-t5-small"
+        # model_name = "google/flan-t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
@@ -305,5 +311,5 @@ class T5IntegrationTest(unittest.TestCase):
         output_text = tokenizer.decode(generate_ids[0], skip_special_tokens=True)
 
         # check the text
-        EXPECTED_TEXT = ""
+        EXPECTED_TEXT = "Hallo, wie geht es Ihnen?"
         self.assertEqual(output_text, EXPECTED_TEXT)

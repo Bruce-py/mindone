@@ -209,7 +209,7 @@ class Phi3IntegrationTest(unittest.TestCase):
         input_ids = {
             "input_ids": ms.Tensor([[1212, 318, 281, 1672, 2643, 290, 428, 318, 257, 1332]], ms.int32)
         }
-        model_name = "/home/slg/test_mindway/phi-3-mini-4k-instruct"
+        model_name = "/home/slg/test_mindway/data/phi-3-mini-4k-instruct"
         # model_name = "microsoft/phi-3-mini-4k-instruct"
         model = Phi3ForCausalLM.from_pretrained(model_name)
 
@@ -223,7 +223,7 @@ class Phi3IntegrationTest(unittest.TestCase):
                                        0.2153,  0.2798,  0.8360,  9.0936, 11.4944, -0.3575, -0.9442,-0.1246,  1.3869,
                                        0.9846,  1.7243,  0.9150,  1.0823,  0.4313,  1.5742, 0.2566, -0.1401, -1.3019,
                                        0.4967,  0.6941,  0.7214]])
-        np.testing.assert_allclose(EXPECTED_LOGITS, output_logits[0, :2, :30], rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(EXPECTED_LOGITS, output_logits[0][0, :2, :30], rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
     @slow
@@ -236,14 +236,14 @@ class Phi3IntegrationTest(unittest.TestCase):
             },
             {"role": "user", "content": "Can you provide ways to eat combinations of bananas and dragonfruits?"},
         ]
-        model_name = "/home/slg/test_mindway/phi-3-mini-4k-instruct"
+        model_name = "/home/slg/test_mindway/data/phi-3-mini-4k-instruct"
         # model_name = "microsoft/phi-3-mini-4k-instruct"
         model = Phi3ForCausalLM.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="ms")
-
-        outputs = model.generate(inputs, max_new_tokens=32)
+        inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="np")
+        input_ids = ms.Tensor(inputs, ms.int32)
+        outputs = model.generate(input_ids, max_new_tokens=32)
         output_text = tokenizer.batch_decode(outputs)
 
         EXPECTED_OUTPUT = [
