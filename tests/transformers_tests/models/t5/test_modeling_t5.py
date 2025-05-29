@@ -299,8 +299,8 @@ class T5IntegrationTest(unittest.TestCase):
     @slow
     def test_small_generation(self, mode):
         ms.set_context(mode=mode)
-        # model_name = "/home/slg/test_mindway/data/t5-base"
-        model_name = "google-t5/t5-base"
+        # model_name = "/home/slg/test_mindway/data/t5-small"
+        model_name = "google-t5/t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
 
@@ -317,7 +317,7 @@ class T5IntegrationTest(unittest.TestCase):
     @slow
     def test_model_inference_translate_en_to_de(self, mode):
         ms.set_context(mode=mode)
-        model_name = "/home/slg/test_mindway/data/t5-base"
+        model_name = "/home/slg/test_mindway/data/t5-small"
         # model_name = "google-t5/t5-base"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = MT5ForConditionalGeneration.from_pretrained(model_name)
