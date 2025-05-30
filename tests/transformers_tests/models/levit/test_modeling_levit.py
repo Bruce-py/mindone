@@ -190,9 +190,10 @@ class LevitModelIntegrationTest(unittest.TestCase):
         image_url = "/home/slg/test_mindway/data/images/000000039769.jpg"
         image = prepare_img(image_url)
         inputs = image_processor(images=image, return_tensors="np")
-        pixel_values = ms.Tensor(inputs.pixel_values)
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
 
-        output_logits = model(pixel_values).logits
+        output_logits = model(**inputs).logits
 
         # check the logits
         EXPECTED_SHAPE = (1, 1000)

@@ -104,8 +104,9 @@ class Qwen3ModelTest(unittest.TestCase):
     )
     def test_model_forward(self, dtype, mode):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
-        pt_module = "transformers.Qwen3ForCausalLM"
-        ms_module = "mindone.transformers.Qwen3ForCausalLM"
+        name = "Qwen3ForCausalLM"
+        pt_module = f"transformers.{name}"
+        ms_module = f"mindone.transformers.{name}"
         config, input_ids, input_mask = self.model_tester.prepare_config_and_inputs()
         init_args = (config,)
         init_kwargs = {}
@@ -120,7 +121,7 @@ class Qwen3ModelTest(unittest.TestCase):
         THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
         self.assertTrue(
             (np.array(diffs) < THRESHOLD).all(),
-            f"For Qwen3ForCausalLM forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
         )
 
@@ -129,8 +130,9 @@ class Qwen3ModelTest(unittest.TestCase):
     )
     def test_model_generate(self, dtype, mode):
         ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
-        pt_module = "transformers.Qwen3ForCausalLM"
-        ms_module = "mindone.transformers.Qwen3ForCausalLM"
+        name = "Qwen3ForCausalLM"
+        pt_module = f"transformers.{name}"
+        ms_module = f"mindone.transformers.{name}"
         config, input_ids, _ = self.model_tester.prepare_config_and_inputs()
         init_args = (config,)
         init_kwargs = {}
@@ -159,7 +161,7 @@ class Qwen3ModelTest(unittest.TestCase):
 
         self.assertTrue(
             ms_outputs_np.shape == pt_outputs_np.shape and (ms_outputs_np == pt_outputs_np).all(),
-            f"For Qwen3ForCausalLM generate test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"For {name} generate test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"ms_outputs_shape: {ms_outputs_np.shape}, pt_outputs_shape: {pt_outputs_np.shape},"
             f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
         )
