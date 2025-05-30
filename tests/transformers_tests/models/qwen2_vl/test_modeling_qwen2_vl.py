@@ -187,7 +187,8 @@ class Qwen2VLModelTest(unittest.TestCase):
 
 class Qwen2VLIntegrationTest(unittest.TestCase):
     def setUp(self):
-        model_name = "Qwen/Qwen2-VL-2B-Instruct"
+        model_name = "/home/slg/test_mindway/data/Qwen2-VL-2B-Instruct"
+        # model_name = "Qwen/Qwen2-VL-2B-Instruct"
         self.processor = AutoProcessor.from_pretrained(model_name)
         self.messages = [
             {
