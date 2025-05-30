@@ -217,6 +217,6 @@ class Qwen2VLIntegrationTest(unittest.TestCase):
 
         generate_ids = model.generate(**inputs, max_new_tokens=20)
         output_text = self.processor.decode(generate_ids[0], skip_special_tokens=True)
-        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat kind of dog is this?\nassistant\nThe dog in the picture is a Labrador Retriever. Labrador Retriever are known for their intelligence"
+        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat kind of dog is this?\nassistant\nThe dog in the picture is a Labrador Retriever. Labrador Retrievers are known for their intelligence"
 
         self.assertEqual(output_text, EXPECTED_TEXT)
