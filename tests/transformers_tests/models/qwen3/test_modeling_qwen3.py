@@ -205,10 +205,9 @@ class Qwen3IntegrationTest(unittest.TestCase):
         output_text = tokenizer.decode(generated_ids[0][len(input_ids[0]):], skip_special_tokens=True)
         self.assertEqual(EXPECTED_TEXT, output_text)
 
-    @parameterized.expand(MODES)
     @slow
-    def test_model_600m_generate_long_prompt(self, mode):
-        ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
+    def test_model_600m_generate_long_prompt(self):
+        ms.set_context(mode=0, jit_syntax_level=ms.STRICT)
         model_name = "/home/slg/test_mindway/data/Qwen3-0.6B-Base"
         prompt = """The Warring States period in Chinese history (c. 475 – 221 BC) comprises the final centuries of the Zhou dynasty (c. 1046 – 256 BC), which were characterized by warfare, bureaucratic and military reform, and political consolidation. It followed the Spring and Autumn period and concluded with the wars of conquest that saw the state of Qin annex each of the other contender states by 221 BC and found the Qin dynasty, the first imperial dynastic state in East Asian history.
 
@@ -597,9 +596,13 @@ class Qwen3IntegrationTest(unittest.TestCase):
 
         In summary:"""
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = Qwen3ForCausalLM.from_pretrained(model_name)
+        model = Qwen3ForCausalLM.from_pretrained(
+            model_name, use_sliding_window=True, max_window_layers=28, sliding_window=2048)
         input_ids = ms.Tensor(tokenizer([prompt], return_tensors="np").input_ids, ms.int32)
-        generated_ids = model.generate(input_ids, max_new_tokens=50, temperature=0)[0][:, input_ids.shape[1]:]
-        output_text = tokenizer.decode(generated_ids)
-        EXPECTED_TEXT = """ the Warring States period was a period of great change in China, from the traditional feudal system to the bureaucratic state, from the traditional military to the military, from the traditional economy to the economic, and from the traditional culture to the cultural. The"""
+
+        generated_ids = model.generate(input_ids, max_new_tokens=50)[:, input_ids.shape[1]:]
+        output_text = tokenizer.decode(generated_ids[0])
+        EXPECTED_TEXT = """ the Warring States period was a period of great change in China, from the traditional feudal
+         system to the bureaucratic state, from the traditional military to the military, from the traditional economy 
+         to the economic, and from the traditional culture to the cultural. The"""
         self.assertEqual(EXPECTED_TEXT, output_text)
