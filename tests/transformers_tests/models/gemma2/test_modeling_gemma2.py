@@ -8,25 +8,16 @@
 # In cases where models have unique initialization procedures or require testing with specialized output formats,
 # it is necessary to develop distinct, dedicated test cases.
 
-import inspect
 import unittest
 
 import numpy as np
 import pytest
-import torch
 from parameterized import parameterized
-from transformers import Gemma2Config, AutoTokenizer
+from transformers import Gemma2Config
 
 import mindspore as ms
-from transformers.testing_utils import slow
 
-from tests.modeling_test_utils import (
-    MS_DTYPE_MAPPING,
-    PT_DTYPE_MAPPING,
-    compute_diffs,
-    generalized_parse_args,
-    get_modules, forward_compare,
-)
+from tests.modeling_test_utils import forward_compare
 
 from ..gemma.test_modeling_gemma import GemmaModelTester
 
@@ -66,23 +57,3 @@ class Gemma2ModelTest(unittest.TestCase):
             f"For Gemma2Model forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
         )
-
-    # todo 暂无Gemma2ForCausalLM
-    @parameterized.expand(
-        [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
-    )
-    def test_model_generate(self, dtype, mode):
-        pass
-
-
-# todo 暂无Gemma2ForCausalLM
-class Gemma2IntegrationTest(unittest.TestCase):
-    @parameterized.expand(MODES)
-    @slow
-    def test_model_2b_logits(self, mode):
-        pass
-
-    @parameterized.expand(MODES)
-    @slow
-    def test_model_2b_generate(self, mode):
-        pass
