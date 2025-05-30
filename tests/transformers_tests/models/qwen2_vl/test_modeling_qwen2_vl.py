@@ -122,8 +122,9 @@ class Qwen2VLModelTest(unittest.TestCase):
     )
     def test_model_forward(self, dtype, mode):
         ms.set_context(mode=mode)
-        pt_module = "transformers.Qwen2VLModel"
-        ms_module = "mindone.transformers.Qwen2VLModel"
+        name = "Qwen2VLModel"
+        pt_module = f"transformers.{name}"
+        ms_module = f"mindone.transformers.{name}"
         config, input_ids, attention_mask = self.model_tester.prepare_config_and_inputs()
         init_args = (config,)
         init_kwargs = {}
@@ -138,22 +139,23 @@ class Qwen2VLModelTest(unittest.TestCase):
         THRESHOLD = DTYPE_AND_THRESHOLDS[ms_dtype]
         self.assertTrue(
             (np.array(diffs) < THRESHOLD).all(),
-            f"For Qwen2VLModel forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}"
         )
 
     @parameterized.expand(
         [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
     )
-    def test_model_generate(self, dtype, mode):  # todo ms待跑通
+    def test_model_generate(self, dtype, mode):
         ms.set_context(mode=mode)
-        pt_module = "transformers.Qwen2VLForConditionalGeneration"
-        ms_module = "mindone.transformers.Qwen2VLForConditionalGeneration"
+        name = "Qwen2VLForConditionalGeneration"
+        pt_module = f"transformers.{name}"
+        ms_module = f"mindone.transformers.{name}"
         config, input_ids, _ = self.model_tester.prepare_config_and_inputs()
         init_args = (config,)
         init_kwargs = {}
         inputs_args = (input_ids,)
-        inputs_kwargs = {"max_new_tokens": 15, "do_sample": False, "use_cache": False}
+        inputs_kwargs = {"max_new_tokens": 15, "do_sample": False}
 
         (
             pt_model,
@@ -177,7 +179,7 @@ class Qwen2VLModelTest(unittest.TestCase):
 
         self.assertTrue(
             ms_outputs_np.shape == pt_outputs_np.shape and (ms_outputs_np == pt_outputs_np).all(),
-            f"For Qwen2VLForConditionalGeneration test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"For {name} test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
             f"ms_outputs_shape: {ms_outputs_np.shape}, pt_outputs_shape: {pt_outputs_np.shape},"
             f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
         )
@@ -185,7 +187,8 @@ class Qwen2VLModelTest(unittest.TestCase):
 
 class Qwen2VLIntegrationTest(unittest.TestCase):
     def setUp(self):
-        self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        model_name = "Qwen/Qwen2-VL-2B-Instruct"
+        self.processor = AutoProcessor.from_pretrained(model_name)
         self.messages = [
             {
                 "role": "user",
@@ -195,22 +198,25 @@ class Qwen2VLIntegrationTest(unittest.TestCase):
                 ],
             }
         ]
-        image_url = "https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2-VL/demo_small.jpg"
+        # image_url = "https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2-VL/demo_small.jpg"
+        image_url = "/home/slg/test_mindway/data/images/demo_small.jpg"
         self.image = prepare_img(image_url)
 
     @parameterized.expand(MODES)
     @slow
-    def test_model_7b_generate(self, mode):
+    def test_model_2b_generate(self, mode):
         ms.set_context(mode=mode)
-        model_name = "/home/slg/test_mindway/data/Qwen2-VL-7B-Instruct"
-        # model_name = "Qwen/Qwen2-VL-7B-Instruct"
+        model_name = "/home/slg/test_mindway/data/Qwen2-VL-2B-Instruct"
+        # model_name = "Qwen/Qwen2-VL-2B-Instruct"
         model = Qwen2VLForConditionalGeneration.from_pretrained(model_name)
 
         text = self.processor.apply_chat_template(self.messages, tokenize=False, add_generation_prompt=True)
         inputs = self.processor(text=[text], images=[self.image], return_tensors="np")
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v)
 
-        generate_ids = model.generate(ms.Tensor(inputs.input_ids), max_new_tokens=30)
-        output_text = self.processor.decode(generate_ids, skip_special_tokens=True)
-        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat kind of dog is this?\nassistant\nThe dog in the picture appears to be a Labrador Retriever. Labradors are known for their friendly and intelligent nature, making them popular choices"
+        generate_ids = model.generate(**inputs, max_new_tokens=20)
+        output_text = self.processor.decode(generate_ids[0], skip_special_tokens=True)
+        EXPECTED_TEXT = "system\nYou are a helpful assistant.\nuser\nWhat kind of dog is this?\nassistant\nThe dog in the picture is a Labrador Retriever. Labrador Retriever are known for their intelligence"
 
         self.assertEqual(output_text, EXPECTED_TEXT)
