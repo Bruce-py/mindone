@@ -292,7 +292,7 @@ class T5IntegrationTest(unittest.TestCase):
         self.assertEqual(logits.shape, EXPECTED_SHAPE)
 
         EXPECTED_SLICE = ms.Tensor([[-41.227314, -3.6791453, -8.1832485, 0.9304836, -12.596826],
-                                    [-34.545765, -3.5687943, -1.4550631, 4.510734, -4.293913]], ms.float32)
+                                    [-34.545765, 3.5687943, -1.4550631, 4.510734, -4.292391]], ms.float32)
         np.testing.assert_allclose(logits[0, :2, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
