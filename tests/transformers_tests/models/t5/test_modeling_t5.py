@@ -20,7 +20,7 @@ from transformers import T5Config, AutoTokenizer
 import mindspore as ms
 from transformers.testing_utils import slow
 
-from mindone.transformers import MT5ForConditionalGeneration
+from mindone.transformers import T5ForConditionalGeneration
 from tests.modeling_test_utils import (
     MS_DTYPE_MAPPING,
     PT_DTYPE_MAPPING,
@@ -276,7 +276,7 @@ class T5IntegrationTest(unittest.TestCase):
         model_name = "/home/slg/test_mindway/data/flan-t5-small"
         # model_name = "google/flan-t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = MT5ForConditionalGeneration.from_pretrained(model_name)
+        model = T5ForConditionalGeneration.from_pretrained(model_name)
 
         input_ids = tokenizer("The <extra_id_0> walks in <extra_id_1> park", return_tensors="np").input_ids
         labels = tokenizer("<extra_id_0> cute dog <extra_id_1> the <extra_id_2>", return_tensors="np").input_ids
@@ -302,7 +302,7 @@ class T5IntegrationTest(unittest.TestCase):
         # model_name = "/home/slg/test_mindway/data/t5-small"
         model_name = "google-t5/t5-small"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = MT5ForConditionalGeneration.from_pretrained(model_name)
+        model = T5ForConditionalGeneration.from_pretrained(model_name)
 
         input_text = "summarize: Hello there"
         input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)
@@ -320,7 +320,7 @@ class T5IntegrationTest(unittest.TestCase):
         model_name = "/home/slg/test_mindway/data/t5-small"
         # model_name = "google-t5/t5-base"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = MT5ForConditionalGeneration.from_pretrained(model_name)
+        model = T5ForConditionalGeneration.from_pretrained(model_name)
 
         input_text = "translate English to German: Hello, how are you?"
         input_ids = ms.Tensor(tokenizer(input_text, return_tensors="np").input_ids, ms.int32)

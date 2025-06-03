@@ -221,6 +221,46 @@ class MT5ModelTest(unittest.TestCase):
             f"For {name} forward test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype}, "
             f"Outputs({np.array(diffs).tolist()}) has diff bigger than {THRESHOLD}")
 
+    @parameterized.expand(
+        [(dtype,) + (mode,) for dtype in DTYPE_AND_THRESHOLDS for mode in MODES]
+    )
+    def test_model_generate(self, dtype, mode):
+        ms.set_context(mode=mode)
+        model_name = "MT5ForConditionalGeneration"
+        pt_module = f"transformers.{model_name}"
+        ms_module = f"mindone.transformers.{model_name}"
+        init_args = (self.config,)
+        init_kwargs = {}
+        inputs_args = (self.input_ids,)
+        inputs_kwargs = {"max_new_tokens": 15, "do_sample": False, "use_cache": False}
+
+        (
+            pt_model,
+            ms_model,
+            pt_dtype,
+            ms_dtype,
+        ) = get_modules(pt_module, ms_module, dtype, *init_args, **init_kwargs)
+
+        pt_inputs_args, pt_inputs_kwargs, ms_inputs_args, ms_inputs_kwargs = generalized_parse_args(
+            pt_dtype, ms_dtype, *inputs_args, **inputs_kwargs
+        )
+
+        if "hidden_dtype" in inspect.signature(pt_model.forward).parameters:
+            pt_inputs_kwargs.update({"hidden_dtype": PT_DTYPE_MAPPING[pt_dtype]})
+            ms_inputs_kwargs.update({"hidden_dtype": MS_DTYPE_MAPPING[ms_dtype]})
+
+        with torch.no_grad():
+            pt_outputs = pt_model.generate(*pt_inputs_args, **pt_inputs_kwargs)
+        ms_outputs = ms_model.generate(*ms_inputs_args, **ms_inputs_kwargs)
+        pt_outputs_np, ms_outputs_np = pt_outputs.numpy(), ms_outputs.asnumpy()
+
+        self.assertTrue(
+            ms_outputs_np.shape == pt_outputs_np.shape and (ms_outputs_np == pt_outputs_np).all(),
+            f"For {model_name} generate test, mode: {mode}, ms_dtype: {ms_dtype}, pt_type:{pt_dtype},"
+            f"ms_outputs_shape: {ms_outputs_np.shape}, pt_outputs_shape: {pt_outputs_np.shape},"
+            f"ms_outputs: {ms_outputs_np}, pt_outputs: {pt_outputs_np}"
+        )
+
 
 class MT5IntegrationTest(unittest.TestCase):
     @parameterized.expand(MODES)
