@@ -124,13 +124,15 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         model_name = "/home/slg/test_mindway/data/blip2-opt-2.7b"
         # model_name = "Salesforce/blip2-opt-2.7b"
         processor = Blip2Processor.from_pretrained(model_name)
-        model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit=True, mindspore_dtype=ms.float16)
+        model = Blip2ForConditionalGeneration.from_pretrained(model_name, mindspore_dtype=ms.float16)
 
         # image_url = "https://huggingface.co/hf-internal-testing/blip-test-image/resolve/main/demo.jpg"
         image_url = "/home/slg/test_mindway/data/images/demo.jpg"
         image = prepare_img(image_url)
         # case1 image
-        inputs = ms.Tensor(processor(images=image, return_tensors="np")).to(ms.float16)
+        inputs = processor(images=image, return_tensors="np")
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v, ms.float16)
 
         generated_ids = model.generate(**inputs)
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
@@ -144,7 +146,9 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
 
         # case2 image and context
         prompt = "Question: which city is this? Answer:"
-        inputs = ms.Tensor(processor(images=image, text=prompt, return_tensors="np")).to(ms.float16)
+        inputs = processor(images=image, text=prompt, return_tensors="np")
+        for k, v in inputs.items():
+            inputs[k] = ms.Tensor(v, ms.float16)
 
         generated_ids = model.generate(**inputs, max_new_tokens=11)
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
