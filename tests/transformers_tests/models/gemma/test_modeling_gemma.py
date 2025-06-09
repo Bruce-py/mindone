@@ -219,7 +219,10 @@ class GemmaIntegrationTest(unittest.TestCase):
             [[-10.9505, 5.6840, -2.8602, -1.4515, 2.6672, 8.8554, 13.3415, 1.8176]]).astype(np.float32)
         np.testing.assert_allclose(out_logits.mean(-1), EXPECTED_MEAN, rtol=1e-2, atol=1e-2)
         # slicing logits[0, :4, :5]
-        EXPECTED_SLICE = np.array([]).astype(np.float32)
+        EXPECTED_SLICE = np.array([[-18.1809, 19.3977, -31.0383, -18.0997, -13.8313],
+                                   [7.8680, 21.3193, -6.85355, 7.8942, 12.8942],
+                                   [-1.7373, 11.9662, -9.3825, -1.6966, 3.0051],
+                                   [3.2289, 10.3501, -1.9382, 3.2792, 3.95485]]).astype(np.float32)
         np.testing.assert_allclose(out_logits[0, :4, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
