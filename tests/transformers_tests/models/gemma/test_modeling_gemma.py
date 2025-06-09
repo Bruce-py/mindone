@@ -214,23 +214,21 @@ class GemmaIntegrationTest(unittest.TestCase):
         input_ids = ms.tensor([input_ids], ms.int32)
         model.set_train(False)
         out_logits = model(input_ids, use_cache=False)[0].asnumpy()
-        # todo add EXPECTED
         # Expected mean on dim = -1
         EXPECTED_MEAN = np.array(
-            [[]]).astype(np.float32)
+            [[-10.9505, 5.6840, -2.8602, -1.4515, 2.6672, 8.8554, 13.3415, 1.8176]]).astype(np.float32)
         np.testing.assert_allclose(out_logits.mean(-1), EXPECTED_MEAN, rtol=1e-2, atol=1e-2)
-        # slicing logits[0, 0, 0:20]
-        EXPECTED_SLICE = np.array(
-            []).astype(np.float32)
-        np.testing.assert_allclose(out_logits[0, 0, :20], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
+        # slicing logits[0, :4, :5]
+        EXPECTED_SLICE = np.array([]).astype(np.float32)
+        np.testing.assert_allclose(out_logits[0, :4, :5], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @parameterized.expand(MODES)
     @slow
     def test_model_2b_generate(self, mode):
         ms.set_context(mode=mode)
         # todo EXPECTED
-        EXPECTED_TEXT = """"""
-        prompt = "What is your favorite condiment?"
+        EXPECTED_TEXT = "Hello I am doing a project on the 1990s and I need to know what the most popular music"
+        prompt = "Hello I am doing"
         model_name = "/home/slg/test_mindway/data/gemma-2b"
         # model_name = "google/gemma-2b"
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
