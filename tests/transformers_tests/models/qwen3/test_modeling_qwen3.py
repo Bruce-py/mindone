@@ -207,6 +207,22 @@ class Qwen3IntegrationTest(unittest.TestCase):
         output_text = tokenizer.decode(generated_ids[0][len(input_ids[0]):], skip_special_tokens=True)
         self.assertEqual(EXPECTED_TEXT, output_text)
 
+    @parameterized.expand(MODES)
+    @slow
+    def test_model_600m_long_prompt(self, mode):
+        ms.set_context(mode=mode, jit_syntax_level=ms.STRICT)
+        EXPECTED_IDS = [306, 338]
+        input_ids = [1] + EXPECTED_IDS * 2048
+        model_name = "/home/slg/test_mindway/data/Qwen3-0.6B-Base"
+        # model_name = "Qwen/Qwen3-0.6B-Base"
+        model = Qwen3ForCausalLM.from_pretrained(
+            model_name,
+            attn_implementation="flash_attention_2",
+        )
+        input_ids = ms.Tensor(input_ids, ms.int32)
+        generated_ids = model.generate(input_ids, max_new_tokens=4, temperature=0)
+        self.assertEqual(EXPECTED_IDS, generated_ids[0][-2:])
+
     @slow
     def test_model_600m_generate_long_prompt(self):
         ms.set_context(mode=0, jit_syntax_level=ms.STRICT)
